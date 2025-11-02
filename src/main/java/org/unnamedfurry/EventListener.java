@@ -30,10 +30,11 @@ public class EventListener extends ListenerAdapter {
                 channel.sendMessage("Отправлена неверная команда! Проверьте синтаксис команды при помощи `!help`.").queue();
             }
         } else if(content.startsWith("!ban")){
-
             commands.banCommand(channel, message, content);
         } else if(content.startsWith("!unban")){
             commands.unbanCommand(channel, message, content);
+        } else if (content.startsWith("!clear")){
+            commands.clearMessages(channel, message, content);
         } else if (content.startsWith("!whitelistRole")){
             commands.whitelistRole(message, channel, content);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {

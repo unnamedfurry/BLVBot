@@ -143,12 +143,30 @@ public class Commands {
         }
     }
 
+    public void clearMessages(MessageChannel channel, Message message, String content){
+        if (Verification.allowedExecAdminCommands(message, channel)){
+            String[] contentArr = content.split(" ");
+            int length = Integer.parseInt(contentArr[1]);
+            if (length<=49){
+                channel.getIterableHistory().takeAsync(length+1).thenAccept(messages -> {
+                    channel.purgeMessages(messages);
+                    channel.sendMessage("Успешно очищено " + length + " сообщений.").queue(msg -> {msg.delete().queueAfter(3, TimeUnit.SECONDS);});
+                }).exceptionally(error -> {logger.error("Произошла ошибка при удалении сообщений."); error.printStackTrace(); channel.sendMessage("Произошла ошибка при удалении сообщений.").queue(); return null;});
+            } else {
+                channel.sendMessage("<@" + message.getAuthor().getId() + ">, вы не можете удалить больше 50 сообщений за раз.\n-# Запрошено пользователем: " + message.getAuthor().getName() + getTime()).queue();
+            }
+        }
+    }
+
     public void HelpCommand (MessageChannel channel, Message message){
-        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        String date = LocalDate.now().format(dateFormatter);
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-        String time = LocalTime.now().format(timeFormatter);
-        channel.sendMessage("## Список доступных комманд (находится в стадии активной разработки, функционал будет постепенно добавляться):\n1. Команда help/usage -- отображает список доступных комманд и их использование. Использование: `!help` или `!usage`.\n2. Команда ping -- проверяет работу бота и задержку апи. Использование: `!ping`.\n3. Команда avatar -- позволяет посмотреть и скачать текущий аватар интересующего пользователя. Использование: `!avatar <айди_интересующего_юзера>`, например: `!avatar 897054945889644564`.\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+        try {
+            Path filePath = Path.of("src/main/resources/help-menu.txt");
+            String aboutText = Files.readString(filePath);
+            channel.sendMessage(aboutText + "\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 }
 
