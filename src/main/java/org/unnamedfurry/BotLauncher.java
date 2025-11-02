@@ -9,13 +9,16 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 public class BotLauncher extends ListenerAdapter {
     static JDA bot;
     public static void main(String[] args) throws Exception{
-        bot = JDABuilder.createDefault("").addEventListeners(new EventListener()).enableIntents(GatewayIntent.MESSAGE_CONTENT).build().awaitReady();
+        String token = Files.readString(Path.of("src/main/resources/bot_token.txt")).trim();
+        bot = JDABuilder.createDefault(token).addEventListeners(new EventListener()).enableIntents(GatewayIntent.MESSAGE_CONTENT).build().awaitReady();
     }
 
     @Override

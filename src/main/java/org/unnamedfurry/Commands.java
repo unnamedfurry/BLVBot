@@ -4,10 +4,12 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.entities.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
+import java.io.*;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -15,14 +17,25 @@ import java.net.http.HttpResponse;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
-import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class Commands {
     final static Logger logger = LoggerFactory.getLogger(Commands.class);
+    public static String getTime(){
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        String date = LocalDate.now().format(dateFormatter);
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+        String time = LocalTime.now().format(timeFormatter);
+        return "Дата: " + date + ", Время: " + time;
+    }
 
     public void avatarCommand(String[] contentFormatted, MessageChannel channel, Message message){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
@@ -49,7 +62,7 @@ public class Commands {
                     if (avatarResponse.statusCode() == 200){
                         byte[] imageData = avatarResponse.body();
                         FileUpload upload = FileUpload.fromData(imageData, "avatar"+contentFormatted[1]+".png");
-                        channel.sendMessage("Аватар пользвателя <@"+contentFormatted[1]+">: \n-# Запрошено пользователем: " + message.getAuthor().getName() + ", Дата: " + date + ", Время: " + time).addFiles(upload).queue();
+                        channel.sendMessage("Аватар пользвателя <@"+contentFormatted[1]+">: \n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).addFiles(upload).queue();
                     }
                 } else {
                     logger.warn("Хэш или Айди пользователя неверные! Неудалось отправить embed-сообщение!");
@@ -67,34 +80,66 @@ public class Commands {
 
     public void banCommand(MessageChannel channel, Message message, String content){
         if (Verification.allowedExecAdminCommands(message, channel)){
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-            String date = LocalDate.now().format(dateFormatter);
-            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-            String time = LocalTime.now().format(timeFormatter);
             String[] messageArr = content.split(" ");
             Guild guild = message.getGuild();
             UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
             if (messageArr.length == 2){
-                guild.ban(snowflake, 7, TimeUnit.DAYS).reason(message.getAuthor().getName() + " не указал причину бана.").queue();
-                channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: не указано\n-# Дата: " + date + ", Время: " + time).queue();
+                guild.ban(snowflake, 7, TimeUnit.DAYS).reason(message.getAuthor().getName() + " не указал причину бана.").queue(
+                        (v) -> channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: не указано\n-# " + getTime()).queue(),
+                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить.\n-# ").queue()
+                );
             } else if (messageArr.length == 3){
-                guild.ban(snowflake, 7, TimeUnit.DAYS).reason(messageArr[2]).queue();
-                channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: " + messageArr[2] + "\nДата: " + date + ", Время: " + time).queue();
+                guild.ban(snowflake, 7, TimeUnit.DAYS).reason(messageArr[2]).queue(
+                        (v) -> channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: " + messageArr[2] + "\n-# " + getTime()).queue(),
+                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить.\n-# " + getTime()).queue()
+                );
             }
         }
     }
 
     public void unbanCommand(MessageChannel channel, Message message, String content){
         if (Verification.allowedExecAdminCommands(message, channel)){
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-            String date = LocalDate.now().format(dateFormatter);
-            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-            String time = LocalTime.now().format(timeFormatter);
             String[] messageArr = content.split(" ");
             Guild guild = message.getGuild();
             UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
             guild.unban(snowflake).queue();
-            channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно разбанен " + message.getAuthor().getName() + ".\n-# Дата: " + date + ", Время: " + time).queue();
+            channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно разбанен " + message.getAuthor().getName() + ".\n-# " + getTime()).queue();
+        }
+    }
+
+    public void whitelistRole(Message message, MessageChannel channel, String content){
+        if (Verification.allowedExecAdminCommands(message, channel)){
+            String[] contentArr = content.split(" ");
+            if (contentArr.length == 3){
+                try {
+                    Path path = Path.of("src/main/resources/whitelistedRoles.txt");
+                    List<String> lines = Files.readAllLines(path);
+
+                    if (contentArr[1].equals("add")){
+                        if (lines.stream().anyMatch(line -> line.contains(contentArr[2]))){
+                            channel.sendMessage("Роль <@&" + contentArr[2] + "> уже присутствует в вайтлисте верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                        } else {
+                            Files.write(path, (contentArr[2]+" ").getBytes(), StandardOpenOption.APPEND);
+                            channel.sendMessage("Роль <@&" + contentArr[2] + "> успешно добавлена в вайтлист верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                        }
+                    } else if (contentArr[1].equals("remove")){
+                        if (lines.stream().noneMatch(line -> line.contains(contentArr[2]))){
+                            channel.sendMessage("Роль <@&" + contentArr[2] + "> уже отсутствует в вайтлисте верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                        } else {
+                            String allRoles = String.join(" ", lines).replace(contentArr[2] + " ", "");
+                            Files.write(path, allRoles.getBytes());
+                            channel.sendMessage("Роль <@&" + contentArr[2] + "> успешно удалена из вайтлиста верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                        }
+                    } else {
+                        channel.sendMessage("Неправильное использование команды! Проверьте синтаксис команды (правильный синтаксис: `!whitelistRole add/remove <role_id>`) и повторите попытку. Код ошибки: R-1\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                    }
+                } catch (Exception e){
+                    logger.error(e.getMessage());
+                    throw new RuntimeException(e);
+                }
+            } else {
+                channel.sendMessage("Неправильное использование команды! Проверьте синтаксис команды (правильный синтаксис: `!whitelistRole add/remove <role_id>`) и повторите попытку. Код ошибки: R-2\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            }
         }
     }
 
@@ -103,30 +148,57 @@ public class Commands {
         String date = LocalDate.now().format(dateFormatter);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         String time = LocalTime.now().format(timeFormatter);
-        channel.sendMessage("## Список доступных комманд (находится в стадии активной разработки, функционал будет постепенно добавляться):\n1. Команда help/usage -- отображает список доступных комманд и их использование. Использование: `!help` или `!usage`.\n2. Команда ping -- проверяет работу бота и задержку апи. Использование: `!ping`.\n3. Команда avatar -- позволяет посмотреть и скачать текущий аватар интересующего пользователя. Использование: `!avatar <айди_интересующего_юзера>`, например: `!avatar 897054945889644564`.\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", Дата: " + date + ", Время: " + time).queue();
+        channel.sendMessage("## Список доступных комманд (находится в стадии активной разработки, функционал будет постепенно добавляться):\n1. Команда help/usage -- отображает список доступных комманд и их использование. Использование: `!help` или `!usage`.\n2. Команда ping -- проверяет работу бота и задержку апи. Использование: `!ping`.\n3. Команда avatar -- позволяет посмотреть и скачать текущий аватар интересующего пользователя. Использование: `!avatar <айди_интересующего_юзера>`, например: `!avatar 897054945889644564`.\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", " + getTime()).queue();
     }
 }
 
 class Verification{
-    final static Logger logger = LoggerFactory.getLogger(Verification.class);
-    public static boolean allowedExecAdminCommands(Message message, MessageChannel channel){
+    public static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         String time = LocalTime.now().format(timeFormatter);
+        return "Дата: " + date + ", Время: " + time;
+    }
+    final static Logger logger = LoggerFactory.getLogger(Verification.class);
+    public static boolean allowedExecAdminCommands(Message message, MessageChannel channel){
         boolean bypassedVerification = false;
         Member member = message.getMember();
         try {
-            if (member.getId().equals("897054945889644564") || member.hasPermission(Permission.ADMINISTRATOR) || member.isOwner()){
+            if (member.getId().equals("897054945889644564") || member.hasPermission(Permission.ADMINISTRATOR) || checkRoles(message)){
                 bypassedVerification = true;
             } else {
-                channel.sendMessage("Ошибка выполнения команды: недостаточно прав! Проверьте наличие обязательных прав для выполнения или обратитесь к администратору/овнеру сервера.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", Дата: " + date + ", Время: " + time).queue();
+                channel.sendMessage("<@" + member.getId() + "> , у вас нет прав для выполнения этого действия! Проверьте наличие обязательных прав для выполнения или обратитесь к администратору/овнеру сервера.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
                 logger.info("Запрошена команда (" + message.getContentRaw() + ") участником (" + message.getAuthor() + ") без следующих прав: Администратор, Овнер или Создатель бота.");
             }
         } catch (Exception e) {
-            channel.sendMessage("Произошла неивзестная ошибка при обработке команды. Обратитесь к создателю бота @unnamed_furry.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", Дата: " + date + ", Время: " + time).queue();
+            channel.sendMessage("Произошла неивзестная ошибка при обработке команды. Обратитесь к создателю бота @unnamed_furry.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
             throw new RuntimeException(e);
         }
         return bypassedVerification;
+    }
+
+    public static boolean checkRoles(Message message) throws Exception {
+        File file = new File("src/main/resources/whitelistedRoles.txt");
+        if (file.exists()){
+            FileReader reader = new FileReader(file);
+            StringBuilder existingRoles = new StringBuilder();
+            int a = reader.read();
+            while (a != -1){
+                String b = String.valueOf((char) a);
+                existingRoles.append(b);
+                a = reader.read();
+            }
+            String[] existingRolesBuf = existingRoles.toString().split(" ");
+            Member member = message.getMember();
+            List<Role> roles = member.getRoles();
+            List<String> roleIdsAsString = roles.stream()
+                    .map(Role::getId)
+                    .toList();
+
+            return Arrays.stream(existingRolesBuf).anyMatch(roleIdsAsString::contains);
+        } else {
+            return false;
+        }
     }
 }
