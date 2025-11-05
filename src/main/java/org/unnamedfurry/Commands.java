@@ -19,6 +19,7 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -38,10 +39,6 @@ public class Commands {
     }
 
     public void avatarCommand(String[] contentFormatted, MessageChannel channel, Message message){
-        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        String date = LocalDate.now().format(dateFormatter);
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-        String time = LocalTime.now().format(timeFormatter);
         try {
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
@@ -56,7 +53,7 @@ public class Commands {
                 JsonObject jsonObject = jsonReader.readObject();
                 String avatarHash = jsonObject.getString("avatar", null);
                 if (avatarHash != null){
-                    String avatarURL = String.format("https://cdn.discordapp.com/avatars/%s/%s.webp?size=128", contentFormatted[1], avatarHash);
+                    String avatarURL = String.format("https://cdn.discordapp.com/avatars/%s/%s.webp?size=1024", contentFormatted[1], avatarHash);
                     HttpRequest avatarRequest = HttpRequest.newBuilder().uri(URI.create(avatarURL)).GET().build();
                     HttpResponse<byte[]> avatarResponse = client.send(avatarRequest, HttpResponse.BodyHandlers.ofByteArray());
                     if (avatarResponse.statusCode() == 200){
@@ -86,12 +83,12 @@ public class Commands {
             if (messageArr.length == 2){
                 guild.ban(snowflake, 7, TimeUnit.DAYS).reason(message.getAuthor().getName() + " не указал причину бана.").queue(
                         (v) -> channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: не указано\n-# " + getTime()).queue(),
-                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить.\n-# ").queue()
+                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить либо же он уже забанен.\n-# ").queue()
                 );
             } else if (messageArr.length == 3){
                 guild.ban(snowflake, 7, TimeUnit.DAYS).reason(messageArr[2]).queue(
                         (v) -> channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: " + messageArr[2] + "\n-# " + getTime()).queue(),
-                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить.\n-# " + getTime()).queue()
+                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить либо же он уже забанен.\n-# " + getTime()).queue()
                 );
             }
         }
@@ -112,7 +109,14 @@ public class Commands {
             String[] contentArr = content.split(" ");
             if (contentArr.length == 3){
                 try {
-                    Path path = Path.of("src/main/resources/whitelistedRoles.txt");
+                    Path jarDir = Paths.get(
+                            BotLauncher.class.getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI()
+                    ).getParent();
+                    Path path = jarDir.resolve("whitelistedRoles.txt");
+                    //Path path = Path.of("whitelistedRoles.txt");
                     List<String> lines = Files.readAllLines(path);
 
                     if (contentArr[1].equals("add")){
@@ -158,9 +162,73 @@ public class Commands {
         }
     }
 
+    public void kickCommand(MessageChannel channel, Message message, String content){
+        if (Verification.allowedExecAdminCommands(message, channel)){
+            String[] messageArr = content.split(" ");
+            Guild guild = message.getGuild();
+            UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
+            if (messageArr.length == 2){
+                guild.kick(snowflake).queue(
+                        (v) -> channel.sendMessage("<@" + messageArr[1] + "> был успешно кикнут с сервера <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось кикнуть <@" + snowflake.getId() + "> по причине: этого участника нельзя кикнуть либо же он уже кикнут.\n-# " + getTime()).queue()
+                );
+            } else if (messageArr.length == 3) {
+                guild.kick(snowflake).queue(
+                        (v) -> channel.sendMessage("<@" + messageArr[1] + "> был успешно кикнут с сервера <@" + message.getAuthor().getId() + "> по причине: " + messageArr[2] + ".\n-# " + getTime()).queue(),
+                        (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось кикнуть <@" + snowflake.getId() + "> по причине: этого участника нельзя кикнуть либо же он уже кикнут.\n-# " + getTime()).queue()
+                );
+            }
+        }
+    }
+
+    public void timeoutCommand(MessageChannel channel, Message message, String content){
+        if (Verification.allowedExecAdminCommands(message, channel)){
+            String[] messageArr = content.split(" ");
+            Guild guild = message.getGuild();
+            UserSnowflake snowflake = UserSnowflake.fromId(messageArr[2]);
+            if (messageArr[1].equals("60s") || messageArr[1].equals("5m") || messageArr[1].equals("10m") || messageArr[1].equals("1h") || messageArr[1].equals("1d") || messageArr[1].equals("1w")){
+                switch (messageArr[1]) {
+                    case "60s" -> guild.timeoutFor(snowflake, 1, TimeUnit.MINUTES).queue(
+                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 минута <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут\n-# " + getTime()).queue()
+                    );
+                    case "5m" -> guild.timeoutFor(snowflake, 5, TimeUnit.MINUTES).queue(
+                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 5 минут <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                    );
+                    case "10m" -> guild.timeoutFor(snowflake, 10, TimeUnit.MINUTES).queue(
+                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 10 минут <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                    );
+                    case "1h" -> guild.timeoutFor(snowflake, 1, TimeUnit.HOURS).queue(
+                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 час <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                    );
+                    case "1d" -> guild.timeoutFor(snowflake, 1, TimeUnit.DAYS).queue(
+                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 день <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                    );
+                    case "1w" -> guild.timeoutFor(snowflake, 7, TimeUnit.DAYS).queue(
+                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 неделя <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                    );
+                }
+            } else {
+                channel.sendMessage("<@" + message.getAuthor().getId() + ", неправильное использование команды !timeout. Полный список с обьяснением можно посмотреть по команде !help или !usage.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            }
+        }
+    }
+
     public void HelpCommand (MessageChannel channel, Message message){
         try {
-            Path filePath = Path.of("src/main/resources/help-menu.txt");
+            Path jarDir = Paths.get(
+                    BotLauncher.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            ).getParent();
+            Path filePath = jarDir.resolve("help-menu.txt");
+            //Path filePath = Path.of("help-menu.txt");
             String aboutText = Files.readString(filePath);
             channel.sendMessage(aboutText + "\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         } catch (Exception e) {
@@ -195,9 +263,15 @@ class Verification{
         }
         return bypassedVerification;
     }
-
     public static boolean checkRoles(Message message) throws Exception {
-        File file = new File("src/main/resources/whitelistedRoles.txt");
+        Path jarDir = Paths.get(
+                BotLauncher.class.getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI()
+        ).getParent();
+        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.txt")));
+        //File file = new File("whitelistedRoles.txt");
         if (file.exists()){
             FileReader reader = new FileReader(file);
             StringBuilder existingRoles = new StringBuilder();

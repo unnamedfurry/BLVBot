@@ -37,6 +37,10 @@ public class EventListener extends ListenerAdapter {
             commands.clearMessages(channel, message, content);
         } else if (content.startsWith("!whitelistRole")){
             commands.whitelistRole(message, channel, content);
+        } else if (content.startsWith("!kick")){
+            commands.kickCommand(channel, message, content);
+        } else if (content.startsWith("!timeout")) {
+            commands.timeoutCommand(channel, message, content);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {
             commands.HelpCommand(channel, message);
         }
