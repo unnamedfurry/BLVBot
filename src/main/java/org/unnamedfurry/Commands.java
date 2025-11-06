@@ -40,20 +40,31 @@ public class Commands {
 
     public void avatarCommand(String[] contentFormatted, MessageChannel channel, Message message){
         try {
+            /*Path jarDir = Paths.get(
+                BotLauncher.class.getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI()
+                ).getParent();
+                String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();
+                 */
+            String token = Files.readString(Path.of("bot_token.txt")).trim();
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://discord.com/api/v10/users/" + contentFormatted[1]))
-                    .header("Authorization", "Bot ")
+                    .header("Authorization", "Bot " + token)
+
                     .header("Content-Type", "application/json")
                     .GET().build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String avatarURL = "";
             if (response.statusCode() == 200) {
                 String responseBody = response.body();
                 JsonReader jsonReader = Json.createReader(new StringReader(responseBody));
                 JsonObject jsonObject = jsonReader.readObject();
                 String avatarHash = jsonObject.getString("avatar", null);
                 if (avatarHash != null){
-                    String avatarURL = String.format("https://cdn.discordapp.com/avatars/%s/%s.webp?size=1024", contentFormatted[1], avatarHash);
+                    avatarURL = String.format("https://cdn.discordapp.com/avatars/%s/%s.webp?size=1024", contentFormatted[1], avatarHash);
                     HttpRequest avatarRequest = HttpRequest.newBuilder().uri(URI.create(avatarURL)).GET().build();
                     HttpResponse<byte[]> avatarResponse = client.send(avatarRequest, HttpResponse.BodyHandlers.ofByteArray());
                     if (avatarResponse.statusCode() == 200){
@@ -68,6 +79,7 @@ public class Commands {
             } else {
                 logger.error("Bad response type.");
                 logger.error(String.valueOf(response.statusCode()));
+                logger.error("Requested command: " + message.getContentRaw() + ", Generated Link: " + avatarURL);
             }
         } catch (Exception e) {
             logger.error(e.toString());
@@ -264,14 +276,15 @@ class Verification{
         return bypassedVerification;
     }
     public static boolean checkRoles(Message message) throws Exception {
-        Path jarDir = Paths.get(
+        /*Path jarDir = Paths.get(
                 BotLauncher.class.getProtectionDomain()
                         .getCodeSource()
                         .getLocation()
                         .toURI()
         ).getParent();
         File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.txt")));
-        //File file = new File("whitelistedRoles.txt");
+         */
+        File file = new File("whitelistedRoles.txt");
         if (file.exists()){
             FileReader reader = new FileReader(file);
             StringBuilder existingRoles = new StringBuilder();

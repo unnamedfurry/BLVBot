@@ -18,14 +18,15 @@ import java.time.format.DateTimeFormatter;
 public class BotLauncher extends ListenerAdapter {
     static JDA bot;
     public static void main(String[] args) throws Exception{
-        Path jarDir = Paths.get(
+        /*Path jarDir = Paths.get(
                 BotLauncher.class.getProtectionDomain()
                         .getCodeSource()
                         .getLocation()
                         .toURI()
         ).getParent();
         String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();
-        //String token = Files.readString(Path.of("bot_token.txt")).trim();
+         */
+        String token = Files.readString(Path.of("bot_token.txt")).trim();
         bot = JDABuilder.createDefault(token).addEventListeners(new EventListener()).enableIntents(GatewayIntent.MESSAGE_CONTENT).build().awaitReady();
     }
 
