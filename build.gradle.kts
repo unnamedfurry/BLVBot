@@ -6,12 +6,12 @@ plugins {
 }
 
 application {
-    mainClass.set("com.unnamedfurry.BotLauncher")
+    mainClass.set("org.unnamedfurry.BotLauncher")
 }
 
 tasks.shadowJar {
     manifest {
-        attributes["Main-Class"] = "com.unnamedfurry.BotLauncher"
+        attributes["Main-Class"] = "org.unnamedfurry.BotLauncher"
     }
 }
 
@@ -27,9 +27,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     implementation("net.dv8tion:JDA:6.1.1")
-    implementation("org.glassfish:javax.json:1.1.4")
     implementation("ch.qos.logback:logback-classic:1.5.13")
     implementation("org.slf4j:slf4j-api:2.0.16")
+    implementation("org.json:json:20250517")
 }
 
 tasks.test {

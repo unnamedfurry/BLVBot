@@ -14,16 +14,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonReader;
+import org.json.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -46,8 +44,7 @@ public class Commands {
                         .getLocation()
                         .toURI()
                 ).getParent();
-                String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();
-                 */
+                String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();*/
             String token = Files.readString(Path.of("bot_token.txt")).trim();
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
@@ -59,9 +56,8 @@ public class Commands {
             String avatarURL = "";
             if (response.statusCode() == 200) {
                 String responseBody = response.body();
-                JsonReader jsonReader = Json.createReader(new StringReader(responseBody));
-                JsonObject jsonObject = jsonReader.readObject();
-                String avatarHash = jsonObject.getString("avatar", null);
+                JSONObject object = new JSONObject(responseBody);
+                String avatarHash = object.optString("avatar", null);
                 if (avatarHash != null){
                     avatarURL = String.format("https://cdn.discordapp.com/avatars/%s/%s.webp?size=1024", contentFormatted[1], avatarHash);
                     HttpRequest avatarRequest = HttpRequest.newBuilder().uri(URI.create(avatarURL)).GET().build();
@@ -120,31 +116,57 @@ public class Commands {
             String[] contentArr = content.split(" ");
             if (contentArr.length == 3){
                 try {
-                    Path jarDir = Paths.get(
+                    /*Path jarDir = Paths.get(
                             BotLauncher.class.getProtectionDomain()
                                     .getCodeSource()
                                     .getLocation()
                                     .toURI()
                     ).getParent();
-                    Path path = jarDir.resolve("whitelistedRoles.txt");
-                    //Path path = Path.of("whitelistedRoles.txt");
-                    List<String> lines = Files.readAllLines(path);
+                    Path path = jarDir.resolve("whitelistedRoles.json");*/
+                    Path path = Path.of("whitelistedRoles.json");
 
+                    String json = Files.readString(path);
+                    JSONObject object = new JSONObject(json);
+                    Guild guild = message.getGuild();
                     if (contentArr[1].equals("add")){
-                        if (lines.stream().anyMatch(line -> line.contains(contentArr[2]))){
-                            channel.sendMessage("Роль <@&" + contentArr[2] + "> уже присутствует в вайтлисте верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                        if (object.has(guild.getId())){
+                            FileWriter writer = new FileWriter(path.toFile());
+                            JSONArray array = object.getJSONArray(guild.getId());
+                            if (array.toList().contains(contentArr[2])){
+                                channel.sendMessage("Роль <@&" + contentArr[2] + "> уже присутствует в вайтлисте верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                            } else {
+                                array.put(contentArr[2]);
+                                object.write(writer);
+                                writer.close();
+                            }
                         } else {
-                            Files.write(path, (contentArr[2]+" ").getBytes(), StandardOpenOption.APPEND);
-                            channel.sendMessage("Роль <@&" + contentArr[2] + "> успешно добавлена в вайтлист верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                            FileWriter writer = new FileWriter(path.toFile());
+                            JSONArray array = new JSONArray();
+                            array.put(contentArr[2]);
+                            object.put(guild.getId(), array);
+                            object.write(writer);
+                            writer.close();
                         }
+                        channel.sendMessage("Роль <@&" + contentArr[2] + "> успешно добавлена в вайтлист верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
                     } else if (contentArr[1].equals("remove")){
-                        if (lines.stream().noneMatch(line -> line.contains(contentArr[2]))){
-                            channel.sendMessage("Роль <@&" + contentArr[2] + "> уже отсутствует в вайтлисте верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-                        } else {
-                            String allRoles = String.join(" ", lines).replace(contentArr[2] + " ", "");
-                            Files.write(path, allRoles.getBytes());
-                            channel.sendMessage("Роль <@&" + contentArr[2] + "> успешно удалена из вайтлиста верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                        if (object.has(guild.getId())){
+                            FileWriter writer = new FileWriter(path.toFile());
+                            JSONArray array = object.getJSONArray(guild.getId());
+                            if (array.toList().contains(contentArr[2])){
+                                for (int i=0; i<=array.length(); i++){
+                                    if (array.getString(i).equals(contentArr[2])){
+                                        array.remove(i);
+                                        break;
+                                    }
+                                }
+                                object.put(guild.getId(), array);
+                                object.write(writer);
+                                writer.close();
+                            } else {
+                                channel.sendMessage("Роль <@&" + contentArr[2] + "> уже отсутствует в вайтлисте верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                            }
                         }
+                        channel.sendMessage("Роль <@&" + contentArr[2] + "> успешно удалена из вайтлиста верефицированных ролей.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
                     } else {
                         channel.sendMessage("Неправильное использование команды! Проверьте синтаксис команды (правильный синтаксис: `!whitelistRole add/remove <role_id>`) и повторите попытку. Код ошибки: R-1\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", " + getTime()).queue();
                     }
@@ -232,14 +254,14 @@ public class Commands {
 
     public void HelpCommand (MessageChannel channel, Message message){
         try {
-            Path jarDir = Paths.get(
+            /*Path jarDir = Paths.get(
                     BotLauncher.class.getProtectionDomain()
                             .getCodeSource()
                             .getLocation()
                             .toURI()
             ).getParent();
-            Path filePath = jarDir.resolve("help-menu.txt");
-            //Path filePath = Path.of("help-menu.txt");
+            Path filePath = jarDir.resolve("help-menu.txt");*/
+            Path filePath = Path.of("help-menu.txt");
             String aboutText = Files.readString(filePath);
             channel.sendMessage(aboutText + "\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         } catch (Exception e) {
@@ -281,26 +303,25 @@ class Verification{
                         .getLocation()
                         .toURI()
         ).getParent();
-        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.txt")));
-         */
-        File file = new File("whitelistedRoles.txt");
+        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.json")));*/
+        File file = new File("whitelistedRoles.json");
         if (file.exists()){
-            FileReader reader = new FileReader(file);
-            StringBuilder existingRoles = new StringBuilder();
-            int a = reader.read();
-            while (a != -1){
-                String b = String.valueOf((char) a);
-                existingRoles.append(b);
-                a = reader.read();
+            String json = Files.readString(file.toPath());
+            Guild guild = message.getGuild();;
+            JSONObject object = new JSONObject(json);
+            JSONArray array = object.getJSONArray(guild.getId());
+            String[] existingRolesArr = new String[array.length()];
+            for (int i=0; i<=array.length(); i++){
+                existingRolesArr[i] = array.getString(i);
             }
-            String[] existingRolesBuf = existingRoles.toString().split(" ");
             Member member = message.getMember();
+            assert member != null;
             List<Role> roles = member.getRoles();
             List<String> roleIdsAsString = roles.stream()
                     .map(Role::getId)
                     .toList();
 
-            return Arrays.stream(existingRolesBuf).anyMatch(roleIdsAsString::contains);
+            return Arrays.stream(existingRolesArr).anyMatch(roleIdsAsString::contains);
         } else {
             return false;
         }
