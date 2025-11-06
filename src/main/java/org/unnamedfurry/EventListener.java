@@ -14,18 +14,35 @@ public class EventListener extends ListenerAdapter {
 
         Message message = event.getMessage();
         String content = message.getContentRaw();
+        MessageChannel channel = event.getChannel();
 
         if (content.equals("!ping")) {
-            MessageChannel channel = event.getChannel();
             channel.sendMessage("Pong!").queue();
         } else if (content.startsWith("!avatar")) {
-            MessageChannel channel = event.getChannel();
             String[] contentFormatted = content.split(" ");
-            try {
-                commands.avatarCommand(contentFormatted, channel, message);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            if (contentFormatted[1] != null){
+                try {
+                    commands.avatarCommand(contentFormatted, channel, message);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                channel.sendMessage("Отправлена неверная команда! Проверьте синтаксис команды при помощи `!help`.").queue();
             }
+        } else if(content.startsWith("!ban")){
+            commands.banCommand(channel, message, content);
+        } else if(content.startsWith("!unban")){
+            commands.unbanCommand(channel, message, content);
+        } else if (content.startsWith("!clear")){
+            commands.clearMessages(channel, message, content);
+        } else if (content.startsWith("!whitelistRole")){
+            commands.whitelistRole(message, channel, content);
+        } else if (content.startsWith("!kick")){
+            commands.kickCommand(channel, message, content);
+        } else if (content.startsWith("!timeout")) {
+            commands.timeoutCommand(channel, message, content);
+        } else if (content.startsWith("!help") || content.startsWith("!usage")) {
+            commands.HelpCommand(channel, message);
         }
     }
 }
