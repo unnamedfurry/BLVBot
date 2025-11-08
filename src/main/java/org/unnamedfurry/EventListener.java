@@ -1,20 +1,24 @@
 package org.unnamedfurry;
 
-import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.events.Event;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 public class EventListener extends ListenerAdapter {
-    Commands commands = new Commands();
+    TextCommands textCommands = new TextCommands();
+    SlashCommands slashCommands = new SlashCommands();
+    MusicBot musicBot = new MusicBot();
 
     @Override
-    public void onMessageReceived(MessageReceivedEvent event){
-        if (event.getAuthor().isBot()) return;
+    public void onMessageReceived(MessageReceivedEvent messageEvent){
+        if (messageEvent.getAuthor().isBot()) return;
 
-        Message message = event.getMessage();
+        Message message = messageEvent.getMessage();
         String content = message.getContentRaw();
-        MessageChannel channel = event.getChannel();
+        MessageChannel channel = message.getChannel();
+        Event event = messageEvent;
 
         if (content.equals("!ping")) {
             channel.sendMessage("Pong!").queue();
@@ -22,7 +26,7 @@ public class EventListener extends ListenerAdapter {
             String[] contentFormatted = content.split(" ");
             if (contentFormatted[1] != null){
                 try {
-                    commands.avatarCommand(contentFormatted, channel, message);
+                    textCommands.avatarCommand(contentFormatted, channel, message);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -30,19 +34,27 @@ public class EventListener extends ListenerAdapter {
                 channel.sendMessage("Отправлена неверная команда! Проверьте синтаксис команды при помощи `!help`.").queue();
             }
         } else if(content.startsWith("!ban")){
-            commands.banCommand(channel, message, content);
+            textCommands.banCommand(channel, message, content);
         } else if(content.startsWith("!unban")){
-            commands.unbanCommand(channel, message, content);
+            textCommands.unbanCommand(channel, message, content);
         } else if (content.startsWith("!clear")){
-            commands.clearMessages(channel, message, content);
+            textCommands.clearMessages(channel, message, content);
         } else if (content.startsWith("!whitelistRole")){
-            commands.whitelistRole(message, channel, content);
+            textCommands.whitelistRole(message, channel, content);
         } else if (content.startsWith("!kick")){
-            commands.kickCommand(channel, message, content);
+            textCommands.kickCommand(channel, message, content);
         } else if (content.startsWith("!timeout")) {
-            commands.timeoutCommand(channel, message, content);
+            textCommands.timeoutCommand(channel, message, content);
+        } else if (content.startsWith("!play")) {
+            musicBot.play(message);
+        } else if (content.startsWith("!stop")) {
+            musicBot.stop(message);
+        } else if (content.startsWith("!pause")) {
+            musicBot.pause(message);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {
-            commands.HelpCommand(channel, message);
+            textCommands.HelpCommand(channel, message);
+        } else if (content.startsWith("!registerCommands")){
+            slashCommands.commandRegistration(message);
         }
     }
 }

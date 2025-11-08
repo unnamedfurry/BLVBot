@@ -4,11 +4,9 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.FileUpload;
-import net.dv8tion.jda.api.entities.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.awt.*;
 import java.io.*;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -21,13 +19,12 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class Commands {
-    final static Logger logger = LoggerFactory.getLogger(Commands.class);
+public class TextCommands {
+    final static Logger logger = LoggerFactory.getLogger(TextCommands.class);
     public static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
@@ -38,14 +35,15 @@ public class Commands {
 
     public void avatarCommand(String[] contentFormatted, MessageChannel channel, Message message){
         try {
-            /*Path jarDir = Paths.get(
+            Path jarDir = Paths.get(
                 BotLauncher.class.getProtectionDomain()
                         .getCodeSource()
                         .getLocation()
                         .toURI()
                 ).getParent();
-                String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();*/
-            String token = Files.readString(Path.of("bot_token.txt")).trim();
+            String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();
+            //String token = Files.readString(Path.of("bot_token.txt")).trim();
+
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://discord.com/api/v10/users/" + contentFormatted[1]))
@@ -83,7 +81,7 @@ public class Commands {
     }
 
     public void banCommand(MessageChannel channel, Message message, String content){
-        if (Verification.allowedExecAdminCommands(message, channel)){
+        if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] messageArr = content.split(" ");
             Guild guild = message.getGuild();
             UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
@@ -102,7 +100,7 @@ public class Commands {
     }
 
     public void unbanCommand(MessageChannel channel, Message message, String content){
-        if (Verification.allowedExecAdminCommands(message, channel)){
+        if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] messageArr = content.split(" ");
             Guild guild = message.getGuild();
             UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
@@ -112,18 +110,18 @@ public class Commands {
     }
 
     public void whitelistRole(Message message, MessageChannel channel, String content){
-        if (Verification.allowedExecAdminCommands(message, channel)){
+        if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] contentArr = content.split(" ");
             if (contentArr.length == 3){
                 try {
-                    /*Path jarDir = Paths.get(
+                    Path jarDir = Paths.get(
                             BotLauncher.class.getProtectionDomain()
                                     .getCodeSource()
                                     .getLocation()
                                     .toURI()
                     ).getParent();
-                    Path path = jarDir.resolve("whitelistedRoles.json");*/
-                    Path path = Path.of("whitelistedRoles.json");
+                    Path path = jarDir.resolve("whitelistedRoles.json");
+                    //Path path = Path.of("whitelistedRoles.json");
 
                     String json = Files.readString(path);
                     JSONObject object = new JSONObject(json);
@@ -153,7 +151,7 @@ public class Commands {
                             FileWriter writer = new FileWriter(path.toFile());
                             JSONArray array = object.getJSONArray(guild.getId());
                             if (array.toList().contains(contentArr[2])){
-                                for (int i=0; i<=array.length(); i++){
+                                for (int i=0; i<array.length(); i++){
                                     if (array.getString(i).equals(contentArr[2])){
                                         array.remove(i);
                                         break;
@@ -181,7 +179,7 @@ public class Commands {
     }
 
     public void clearMessages(MessageChannel channel, Message message, String content){
-        if (Verification.allowedExecAdminCommands(message, channel)){
+        if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] contentArr = content.split(" ");
             int length = Integer.parseInt(contentArr[1]);
             if (length<=49){
@@ -196,7 +194,7 @@ public class Commands {
     }
 
     public void kickCommand(MessageChannel channel, Message message, String content){
-        if (Verification.allowedExecAdminCommands(message, channel)){
+        if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] messageArr = content.split(" ");
             Guild guild = message.getGuild();
             UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
@@ -215,7 +213,7 @@ public class Commands {
     }
 
     public void timeoutCommand(MessageChannel channel, Message message, String content){
-        if (Verification.allowedExecAdminCommands(message, channel)){
+        if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] messageArr = content.split(" ");
             Guild guild = message.getGuild();
             UserSnowflake snowflake = UserSnowflake.fromId(messageArr[2]);
@@ -262,6 +260,7 @@ public class Commands {
             ).getParent();
             Path filePath = jarDir.resolve("help-menu.txt");*/
             Path filePath = Path.of("help-menu.txt");
+
             String aboutText = Files.readString(filePath);
             channel.sendMessage(aboutText + "\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         } catch (Exception e) {
@@ -271,7 +270,7 @@ public class Commands {
     }
 }
 
-class Verification{
+class TextVerification{
     public static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
@@ -279,7 +278,7 @@ class Verification{
         String time = LocalTime.now().format(timeFormatter);
         return "Дата: " + date + ", Время: " + time;
     }
-    final static Logger logger = LoggerFactory.getLogger(Verification.class);
+    final static Logger logger = LoggerFactory.getLogger(TextVerification.class);
     public static boolean allowedExecAdminCommands(Message message, MessageChannel channel){
         boolean bypassedVerification = false;
         Member member = message.getMember();
@@ -305,13 +304,14 @@ class Verification{
         ).getParent();
         File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.json")));*/
         File file = new File("whitelistedRoles.json");
+
         if (file.exists()){
             String json = Files.readString(file.toPath());
             Guild guild = message.getGuild();;
             JSONObject object = new JSONObject(json);
             JSONArray array = object.getJSONArray(guild.getId());
             String[] existingRolesArr = new String[array.length()];
-            for (int i=0; i<=array.length(); i++){
+            for (int i=0; i<array.length(); i++){
                 existingRolesArr[i] = array.getString(i);
             }
             Member member = message.getMember();

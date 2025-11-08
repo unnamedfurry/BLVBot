@@ -20,6 +20,8 @@ version = "1.0-BETA"
 
 repositories {
     mavenCentral()
+    maven(url = "https://maven.lavalink.dev/releases")
+    maven(url = "https://jitpack.io")
 }
 
 dependencies {
@@ -30,6 +32,8 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.13")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("org.json:json:20250517")
+    implementation("dev.arbjerg:lavaplayer:2.2.4")
+    implementation("dev.lavalink.youtube:common:1.16.0")
 }
 
 tasks.test {

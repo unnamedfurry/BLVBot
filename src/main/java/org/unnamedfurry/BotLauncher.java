@@ -17,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 
 public class BotLauncher extends ListenerAdapter {
     static JDA bot;
+
     public static void main(String[] args) throws Exception{
         /*Path jarDir = Paths.get(
                 BotLauncher.class.getProtectionDomain()
@@ -26,7 +27,7 @@ public class BotLauncher extends ListenerAdapter {
         ).getParent();
         String token = Files.readString(jarDir.resolve("bot_token.txt")).trim();*/
         String token = Files.readString(Path.of("bot_token.txt")).trim();
-        bot = JDABuilder.createDefault(token).addEventListeners(new EventListener()).enableIntents(GatewayIntent.MESSAGE_CONTENT).build().awaitReady();
+        bot = JDABuilder.createDefault(token).addEventListeners(new EventListener()).addEventListeners(new SlashCommands()).enableIntents(GatewayIntent.MESSAGE_CONTENT).build().awaitReady();
     }
 
     @Override
@@ -36,6 +37,7 @@ public class BotLauncher extends ListenerAdapter {
         MessageChannel channel = bot.getTextChannelById("1433490601487368192");
         assert channel != null;
         channel.sendMessage("Бот включился.\n-# Время: " + time).queue();
+        System.out.println("Finished loading!");
     }
 
     @Override
@@ -45,5 +47,6 @@ public class BotLauncher extends ListenerAdapter {
         MessageChannel channel = bot.getTextChannelById("1433490601487368192");
         assert channel != null;
         channel.sendMessage("Бот выключился.\n-# Время: " + time).queue();
+        System.out.println("Shutting down!");
     }
 }
