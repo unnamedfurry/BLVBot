@@ -1,37 +1,23 @@
 package org.unnamedfurry;
 
-import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
-import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
-import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
-import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
-import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
-import com.sedmelluq.discord.lavaplayer.track.playback.MutableAudioFrame;
-import dev.lavalink.youtube.YoutubeAudioSourceManager;
-import net.dv8tion.jda.api.audio.AudioSendHandler;
+import dev.arbjerg.lavalink.client.Link;
 import net.dv8tion.jda.api.entities.*;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
-import net.dv8tion.jda.api.managers.AudioManager;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.*;
 
 public class MusicBot {
     final static Logger logger = LoggerFactory.getLogger(MusicBot.class);
@@ -49,19 +35,79 @@ public class MusicBot {
         Member selfMember = message.getGuild().getSelfMember();
         GuildVoiceState selfState = selfMember.getVoiceState();
         GuildVoiceState memberState = message.getMember().getVoiceState();
+        HttpClient http = HttpClient.newHttpClient();
         if (messageArr.length == 1) message.getChannel().sendMessage("Вы не можете указать пустые аргументы. Добавьте название или ссылку на желаемую музыку.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         if (!memberState.inAudioChannel()) message.getChannel().sendMessage("Вам нужно находиться в голосовом канале!\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         try {
             if (!selfState.inAudioChannel()){
-                final AudioManager audioManager = message.getGuild().getAudioManager();
-                final VoiceChannel memberChannel = (VoiceChannel) memberState.getChannel();
-                audioManager.openAudioConnection(memberChannel);
+                BotLauncher.connect(message);
             }
-            String link = content.substring(6);
-            if (!isURL(link)){
-                link = "ytsearch:" + String.join(" ", content.substring(6) + " music");
+            String requestedSong = content.substring(6);
+            if (!isURL(requestedSong)){
+                requestedSong = "ytsearch:" + requestedSong + " music";
             }
-            PlayerManager.getInstance().loadAndPlay(memberState.getChannel().asVoiceChannel(), message, link);
+
+            try {
+                String uri = "http://127.0.0.1:2333/v4/loadtracks?identifier=" + requestedSong;
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(uri))
+                        .header("Authorization", BotLauncher.lavalinkPassword())
+                        .GET().build();
+                HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() / 100 != 2){
+                    message.getChannel().sendMessage("Не удалось получить желаемый трек от Lavalink сервера. (HTTP " + resp.statusCode() + ").\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                    return;
+                }
+                JSONObject json = new JSONObject(resp.body());
+                String loadType = json.optString("loadType", "NO_MATCHES");
+                logger.info("Response from Lavalink: ");
+                logger.info(resp.body());
+                if ("NO_MATCHES".equalsIgnoreCase(loadType)) {
+                    message.getChannel().sendMessage("Не удалось найти запрашиваемый трек.").queue();
+                    return;
+                }
+
+                String encodedTrack;
+                JSONObject first = new JSONObject();
+                if (json.has("data")) {
+                    JSONObject data = json.getJSONObject("data");
+                    encodedTrack = data.getString("encoded");
+                    json = data.getJSONObject("info");
+                } else if (json.has("tracks")) {
+                    JSONArray tracks = json.getJSONArray("tracks");
+                    first = tracks.getJSONObject(0);
+                    encodedTrack = first.getString("track");
+                    json = first.getJSONObject("info");
+                } else {
+                    message.getChannel().sendMessage("Ответ Lavalink не содержит треков.").queue();
+                    return;
+                }
+
+                String title = json.optString("title", "Unknown");
+                long guildID = message.getGuildIdLong();
+                Link link = BotLauncher.getOrCreateLink(guildID);
+                encodedTrack = encodedTrack.trim();
+                encodedTrack = encodedTrack.replaceAll("\\s+", "");
+                encodedTrack = URLEncoder.encode(encodedTrack, StandardCharsets.UTF_8);
+                logger.info("Encoded and cleared track: " + encodedTrack);
+                link.getNode().decodeTrack(encodedTrack)
+                        .flatMap(track -> link.getPlayer().block().setTrack(track))
+                        .doOnSuccess(p -> {
+                            try {
+                                message.getChannel().sendMessage("Сейчас играет: `" + title + "`.\nДля паузы отправьте команду `!pause`, для остановки произведения отправьте команду `!stop`, для перехода к следующей песне отправьте команду `!skip`.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                            } catch (Exception e) {
+                                logger.error("Error in success handler: " + e.getMessage());
+                            }
+                        })
+                        .doOnError(err -> {
+                            message.getChannel().sendMessage("Не получилось загрузить новую музыку.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                            logger.error("Error loading track: " + err.getMessage());
+                        })
+                        .subscribe();
+            } catch (Exception e) {
+                e.getMessage();
+                e.printStackTrace();
+            }
         } catch (Exception e) {
             message.getChannel().sendMessage("Произошла ошибка при обработке команды!").queue();
             logger.error(e.toString());
@@ -82,176 +128,39 @@ public class MusicBot {
         Member selfMember = message.getGuild().getSelfMember();
         GuildVoiceState selfState = selfMember.getVoiceState();
         GuildVoiceState memberState = message.getMember().getVoiceState();
+        long guildID = message.getGuildIdLong();
+        Optional<Link> maybeLink = Optional.ofNullable(BotLauncher.getLinkIfCashed(guildID));
         if (!memberState.inAudioChannel()) message.getChannel().sendMessage("Вам нужно находиться в голосовом канале!\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-        if (!selfState.inAudioChannel()) message.getChannel().sendMessage("Мне нужно находиться в голосовом канале для этого!\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+        if (maybeLink.isEmpty()) message.getChannel().sendMessage("Мне нужно находиться в голосовом канале для этого!\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         try {
             if (Objects.equals(memberState.getChannel(), selfState.getChannel())){
-                PlayerManager.getInstance().getMusicManager(message.getGuild()).scheduler.player.stopTrack();
-                PlayerManager.getInstance().getMusicManager(message.getGuild()).scheduler.queue.clear();
-                message.getGuild().getAudioManager().closeAudioConnection();
+                Link link = maybeLink.get();
+                link.getPlayer().block().stopTrack().subscribe();
+                link.getNode().destroyPlayerAndLink(guildID).subscribe();
                 message.getChannel().sendMessage("Проигрывание было завершено и очередь была очищена.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                BotLauncher.disconnect(message);
             }
         } catch (Exception e) {
             message.getChannel().sendMessage("Произошла ошибка при обработке команды!").queue();
             logger.error(e.toString());
         }
+
     }
 
     public void pause(Message message){
-        GuildMusicManager manager = PlayerManager.getInstance().getMusicManager(message.getGuild());
-        if (manager.scheduler.player.getPlayingTrack() == null) message.getChannel().sendMessage("В данный момент никакая музыка не воспроизводится.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-        manager.scheduler.player.setPaused(!manager.scheduler.player.isPaused());
-        if (manager.scheduler.player.isPaused()){
-            message.getChannel().sendMessage("Трек `" + manager.scheduler.player.getPlayingTrack().getInfo().title + "` приостановлен.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-        } else {
-            message.getChannel().sendMessage("Трек `" + manager.scheduler.player.getPlayingTrack().getInfo().title + "` возобновлен.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-        }
-    }
-}
-
-class PlayerManager {
-    private static PlayerManager INSTANCE;
-    private final Map<Long, GuildMusicManager> musicManagers;
-    private final AudioPlayerManager audioPlayerManager;
-    public static String getTime(){
-        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        String date = LocalDate.now().format(dateFormatter);
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-        String time = LocalTime.now().format(timeFormatter);
-        return "Дата: " + date + ", Время: " + time;
-    }
-
-    public PlayerManager(){
-        this.musicManagers = new HashMap<>();
-        this.audioPlayerManager = new DefaultAudioPlayerManager();
-        YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager();
-        this.audioPlayerManager.registerSourceManager(yt);
-    }
-
-    public GuildMusicManager getMusicManager(Guild guild){
-        return this.musicManagers.computeIfAbsent(guild.getIdLong(), (guildId) -> {
-            final GuildMusicManager guildMusicManager = new GuildMusicManager(this.audioPlayerManager);
-            guild.getAudioManager().setSendingHandler(guildMusicManager.getSendHandler());
-            return guildMusicManager;
+        long guildID = message.getGuildIdLong();
+        Optional<Link> maybeLink = Optional.ofNullable(BotLauncher.getLinkIfCashed(guildID));
+        if (maybeLink.isEmpty()) message.getChannel().sendMessage("В данный момент никакая музыка не воспроизводится.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+        Link link = maybeLink.get();
+        link.getPlayer().block().setPaused(!link.getPlayer().block().getPaused()).subscribe(p -> {
+            boolean paused = link.getPlayer().block().getPaused();
+            if (paused) {
+                message.getChannel().sendMessage("Трек приостановлен.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            } else {
+                message.getChannel().sendMessage("Трек возобновлен.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            }
+        }, err -> {
+            message.getChannel().sendMessage("Не удалось переключить паузу.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         });
-    }
-
-    public void loadAndPlay(VoiceChannel channel, Message data, String trackURL){
-        final GuildMusicManager musicManager = this.getMusicManager(channel.getGuild());
-        this.audioPlayerManager.loadItemOrdered(musicManager, trackURL, new AudioLoadResultHandler() {
-            @Override
-            public void trackLoaded(AudioTrack audioTrack){
-                musicManager.scheduler.queue(audioTrack);
-                int seconds = Math.toIntExact(audioTrack.getInfo().length / 1000);
-                int minutes = Math.toIntExact(audioTrack.getInfo().length / 60000);
-                int hours = Math.toIntExact(audioTrack.getInfo().length / 36000000);
-                String timeMsg = hours + ":" + minutes + ":" + seconds;
-                data.getChannel().sendMessage("Сейчас играет: `" + audioTrack.getInfo().title + "`, автор: `" + audioTrack.getInfo().author + "`, длительность: `" + timeMsg + "`.\nДля паузы отправьте команду `!pause`, для остановки произведения отправьте команду `!stop`, для перехода к следующей песне отправьте команду `!skip`.\n-# Запрошено пользователем: " + data.getAuthor().getName() + ", " + getTime()).queue();
-            }
-
-            @Override
-            public void playlistLoaded(AudioPlaylist playlist){
-                final List<AudioTrack> tracks = playlist.getTracks();
-                if (!tracks.isEmpty()){
-                    AudioTrack audioTrack = tracks.get(0);
-                    musicManager.scheduler.queue(audioTrack);
-                    int seconds = Math.toIntExact(audioTrack.getInfo().length / 1000);
-                    int minutes = Math.toIntExact(audioTrack.getInfo().length / 60000);
-                    int hours = Math.toIntExact(audioTrack.getInfo().length / 36000000);
-                    String timeMsg = hours + ":" + minutes + ":" + seconds;
-                    data.getChannel().sendMessage("Сейчас играет: `" + audioTrack.getInfo().title + "`, автор: `" + audioTrack.getInfo().author + "`, длительность: `" + timeMsg + "`.\nДля паузы отправьте команду `!pause`, для остановки произведения отправьте команду `!stop`, для перехода к следующей песне отправьте команду `!skip`.\n-# Запрошено пользователем: " + data.getAuthor().getName() + ", " + getTime()).queue();
-                }
-            }
-
-            @Override
-            public void noMatches(){
-                data.getChannel().sendMessage("Не получилось найти запрашиваемый трек.\n-# Запрошено пользователем: " + data.getAuthor().getName() + ", " + getTime()).queue();
-            }
-
-            @Override
-            public void loadFailed(FriendlyException e){
-                data.getChannel().sendMessage("Не получилось загрузить новую музыку.\n-# Запрошено пользователем: " + data.getAuthor().getName() + ", " + getTime()).queue();
-            }
-        });
-    }
-
-    public static PlayerManager getInstance(){
-        if (INSTANCE == null){
-            INSTANCE = new PlayerManager();
-        }
-        return INSTANCE;
-    }
-}
-
-class GuildMusicManager{
-    public final AudioPlayer audioPlayer;
-    public final TrackScheduler scheduler;
-    private final AudioPlayerSendHandler sendHandler;
-
-    public GuildMusicManager(AudioPlayerManager manager){
-        this.audioPlayer = manager.createPlayer();
-        this.scheduler = new TrackScheduler(this.audioPlayer);
-        this.audioPlayer.addListener(this.scheduler);
-        this.sendHandler = new AudioPlayerSendHandler(this.audioPlayer);
-    }
-
-    public AudioPlayerSendHandler getSendHandler(){
-        return sendHandler;
-    }
-}
-
-class TrackScheduler extends AudioEventAdapter{
-    public final AudioPlayer player;
-    public final BlockingQueue<AudioTrack> queue;
-
-    public TrackScheduler(AudioPlayer player){
-        this.player = player;
-        this.queue = new LinkedBlockingQueue<>();
-    }
-
-    public void queue(AudioTrack track){
-        if (!this.player.startTrack(track, true)){
-            this.queue.add(track);
-        }
-    }
-
-    public void nextTrack(){
-        this.player.startTrack(this.queue.poll(), false);
-    }
-
-    @Override
-    public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason){
-        if (endReason.mayStartNext){
-            nextTrack();
-        }
-    }
-}
-
-class AudioPlayerSendHandler implements AudioSendHandler {
-    private final AudioPlayer audioPlayer;
-    private final ByteBuffer buffer;
-    private MutableAudioFrame frame;
-
-    public AudioPlayerSendHandler(AudioPlayer audioPlayer){
-        this.audioPlayer = audioPlayer;
-        this.buffer = ByteBuffer.allocate(1024);
-        this.frame = new MutableAudioFrame();
-        frame.setBuffer(buffer);
-    }
-
-    @Override
-    public boolean canProvide() {
-        return this.audioPlayer.provide(this.frame);
-    }
-
-    @Override
-    public ByteBuffer provide20MsAudio() {
-        final Buffer tmp = ((Buffer) this.buffer).flip();
-        return (ByteBuffer) tmp;
-    }
-
-    @Override
-    public boolean isOpus() {
-        return true;
     }
 }

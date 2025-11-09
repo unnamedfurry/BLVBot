@@ -48,14 +48,14 @@ public class SlashCommands extends ListenerAdapter {
 
     public String HelpCommand(SlashCommandInteractionEvent event){
         try {
-            /*Path jarDir = Paths.get(
+            Path jarDir = Paths.get(
                     BotLauncher.class.getProtectionDomain()
                             .getCodeSource()
                             .getLocation()
                             .toURI()
             ).getParent();
-            Path filePath = jarDir.resolve("help-menu.txt");*/
-            Path filePath = Path.of("help-menu.txt");
+            Path filePath = jarDir.resolve("help-menu.txt");
+            //Path filePath = Path.of("help-menu.txt");
 
             String aboutText = Files.readString(filePath);
             return aboutText + "\n-# Запрошено пользователем: " + event.getUser().getName() + ", " + getTime();
@@ -92,14 +92,14 @@ class SlashVerification{
         return bypassedVerification;
     }
     public static boolean checkRoles(Message message) throws Exception {
-        /*Path jarDir = Paths.get(
+        Path jarDir = Paths.get(
                 BotLauncher.class.getProtectionDomain()
                         .getCodeSource()
                         .getLocation()
                         .toURI()
         ).getParent();
-        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.json")));*/
-        File file = new File("whitelistedRoles.json");
+        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.json")));
+        //File file = new File("whitelistedRoles.json");
 
         if (file.exists()){
             String json = Files.readString(file.toPath());

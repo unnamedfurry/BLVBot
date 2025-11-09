@@ -2,7 +2,6 @@ package org.unnamedfurry;
 
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.events.Event;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
@@ -18,7 +17,6 @@ public class EventListener extends ListenerAdapter {
         Message message = messageEvent.getMessage();
         String content = message.getContentRaw();
         MessageChannel channel = message.getChannel();
-        Event event = messageEvent;
 
         if (content.equals("!ping")) {
             channel.sendMessage("Pong!").queue();

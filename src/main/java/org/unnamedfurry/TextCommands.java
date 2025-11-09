@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.utils.SplitUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -252,17 +253,21 @@ public class TextCommands {
 
     public void HelpCommand (MessageChannel channel, Message message){
         try {
-            /*Path jarDir = Paths.get(
+            Path jarDir = Paths.get(
                     BotLauncher.class.getProtectionDomain()
                             .getCodeSource()
                             .getLocation()
                             .toURI()
             ).getParent();
-            Path filePath = jarDir.resolve("help-menu.txt");*/
-            Path filePath = Path.of("help-menu.txt");
+            Path filePath = jarDir.resolve("help-menu.txt");
+            //Path filePath = Path.of("help-menu.txt");
 
             String aboutText = Files.readString(filePath);
-            channel.sendMessage(aboutText + "\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            List<String> messages = SplitUtil.split(aboutText, 1986);
+            for (String part : messages){
+                channel.sendMessage(part).queue();
+            }
+            channel.sendMessage("-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         } catch (Exception e) {
             logger.error(e.getMessage());
             throw new RuntimeException(e);
@@ -296,14 +301,14 @@ class TextVerification{
         return bypassedVerification;
     }
     public static boolean checkRoles(Message message) throws Exception {
-        /*Path jarDir = Paths.get(
+        Path jarDir = Paths.get(
                 BotLauncher.class.getProtectionDomain()
                         .getCodeSource()
                         .getLocation()
                         .toURI()
         ).getParent();
-        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.json")));*/
-        File file = new File("whitelistedRoles.json");
+        File file = new File(String.valueOf(jarDir.resolve("whitelistedRoles.json")));
+        //File file = new File("whitelistedRoles.json");
 
         if (file.exists()){
             String json = Files.readString(file.toPath());
