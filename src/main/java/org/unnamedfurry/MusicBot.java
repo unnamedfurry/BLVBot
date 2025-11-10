@@ -1,11 +1,13 @@
 package org.unnamedfurry;
 
+import dev.arbjerg.lavalink.client.player.Track;
 import dev.arbjerg.lavalink.client.Link;
 import net.dv8tion.jda.api.entities.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -21,6 +23,9 @@ import java.util.*;
 
 public class MusicBot {
     final static Logger logger = LoggerFactory.getLogger(MusicBot.class);
+    private static final QueueManager queueManager = new QueueManager();
+    public static QueueManager getQueueManager() {return queueManager;}
+    static boolean playlisted = false;
     public static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
@@ -45,6 +50,7 @@ public class MusicBot {
             String requestedSong = content.substring(6);
             if (!isURL(requestedSong)){
                 requestedSong = "ytsearch:" + requestedSong + " music";
+                requestedSong = requestedSong.replaceAll(" ", "-");
             }
 
             try {
@@ -69,7 +75,7 @@ public class MusicBot {
 
                 String encodedTrack;
                 JSONObject first = new JSONObject();
-                if (json.has("data")) {
+                if ("track".equals(loadType)) {
                     JSONObject data = json.getJSONObject("data");
                     encodedTrack = data.getString("encoded");
                     json = data.getJSONObject("info");
@@ -78,6 +84,80 @@ public class MusicBot {
                     first = tracks.getJSONObject(0);
                     encodedTrack = first.getString("track");
                     json = first.getJSONObject("info");
+                } else if ("search".equals(loadType)) {
+                    JSONArray searchResults = json.getJSONArray("data");
+                    if (searchResults.length() == 0){
+                        message.getChannel().sendMessage("Поиск не дал результатов.").queue();
+                        return;
+                    }
+                    JSONObject firstTrack = searchResults.getJSONObject(0);
+                    encodedTrack = firstTrack.getString("encoded");
+                    json = firstTrack.getJSONObject("info");
+                } else if ("playlist".equalsIgnoreCase(loadType)) {
+                    JSONObject data = json.getJSONObject("data");
+                    JSONArray tracksArray = data.getJSONArray("tracks");
+
+                    if (tracksArray.isEmpty()){
+                        message.getChannel().sendMessage("Плейлист пуст").queue();
+                        return;
+                    }
+
+                    long guildId = message.getGuildIdLong();
+                    Link link = BotLauncher.getOrCreateLink(guildId);
+                    QueueManager qm = getQueueManager();
+
+                    JSONObject playlistInfo = data.getJSONObject("info");
+                    String playlistName = playlistInfo != null ? playlistInfo.optString("name", "Unknown playlist") : "Плейлист";
+
+                    final int[] addedCount = {0};
+
+                    JSONObject firstJson = tracksArray.getJSONObject(0);
+                    String firstEncoded = firstJson.getString("encoded");
+                    JSONObject firstInfo = firstJson.getJSONObject("info");
+                    String firstTitle = firstInfo.optString("title", "Unknown");
+                    firstEncoded = firstEncoded.trim();
+                    firstEncoded = firstEncoded.replaceAll("\\s", "");
+
+                    link.getNode().decodeTrack(firstEncoded)
+                            .flatMap((decodedTrack) -> {
+                                addedCount[0]++;
+                                var player = link.getPlayer().block();
+                                if (player.getTrack() == null){
+                                    return player.setTrack(decodedTrack).then(Mono.just(decodedTrack));
+                                }
+                                return Mono.just(decodedTrack);
+                            })
+                            .doOnSuccess(track -> {
+                                message.getChannel().sendMessage(
+                                        "Загружен плейлист: **" + playlistName + "**\n" +
+                                                "Сейчас играет: `" + firstTitle + "`\n" +
+                                                "Добавлено в очередь: " + (tracksArray.length() - 1) + " треков.\n" +
+                                                "-# Запрошено: " + message.getAuthor().getName() + ", " + getTime()
+                                ).queue();
+                            })
+                            .subscribe();
+
+                    for (int i=1; i<tracksArray.length(); i++){
+                        JSONObject trackJson = tracksArray.getJSONObject(i);
+                        String enc = trackJson.getString("encoded");
+                        String cleanedNext = enc.trim().replaceAll("\\s", "");
+                        String urlEncoded = URLEncoder.encode(cleanedNext, StandardCharsets.UTF_8);
+
+                        link.getNode().decodeTrack(urlEncoded)
+                                .subscribe(decoded -> {
+                                    qm.addToQueue(guildId, decoded);
+                                    addedCount[0]++;
+                                }, error -> logger.error("Failed to decode given playlist track", error));
+                    }
+
+                    if (tracksArray.length() == 1){
+                        message.getChannel().sendMessage(
+                                "Добавлен трек из плейлиста: `" + firstTitle + "`\n" +
+                                        "-# Запрошено: " + message.getAuthor().getName() + ", " + getTime()
+                        ).queue();
+                    }
+
+                    return;
                 } else {
                     message.getChannel().sendMessage("Ответ Lavalink не содержит треков.").queue();
                     return;
@@ -87,17 +167,43 @@ public class MusicBot {
                 long guildID = message.getGuildIdLong();
                 Link link = BotLauncher.getOrCreateLink(guildID);
                 encodedTrack = encodedTrack.trim();
-                encodedTrack = encodedTrack.replaceAll("\\s+", "");
+                encodedTrack = encodedTrack.replaceAll("\\s", "");
                 encodedTrack = URLEncoder.encode(encodedTrack, StandardCharsets.UTF_8);
                 logger.info("Encoded and cleared track: " + encodedTrack);
                 link.getNode().decodeTrack(encodedTrack)
-                        .flatMap(track -> link.getPlayer().block().setTrack(track))
-                        .doOnSuccess(p -> {
-                            try {
-                                message.getChannel().sendMessage("Сейчас играет: `" + title + "`.\nДля паузы отправьте команду `!pause`, для остановки произведения отправьте команду `!stop`, для перехода к следующей песне отправьте команду `!skip`.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-                            } catch (Exception e) {
-                                logger.error("Error in success handler: " + e.getMessage());
+                        .flatMap(track -> {
+                            Track track1 = track;
+                            QueueManager qm = getQueueManager();
+
+                            qm.addToQueue(guildID, track1);
+
+                            var player = link.getPlayer().block();
+                            if (player.getTrack() == null){
+                                Track next = qm.getNext(guildID);
+                                if (next != null){
+                                    return player.setTrack(next);
+                                }
                             }
+
+                            message.getChannel().sendMessage(
+                                    "Добавлено в очередь: `" + title + "`" +
+                                            (qm.hasNext(guildID) ? " (Очередь: " + qm.getQueueList(guildID).size() + ")" : "") +
+                                            ".\n-# Запрошено: " + message.getAuthor().getName() + ", " + getTime()
+                            ).queue();
+
+                            playlisted = true;
+
+                            return Mono.empty();
+                        })
+                        .doOnSuccess(p -> {
+                            if (!playlisted){
+                                try {
+                                    message.getChannel().sendMessage("Сейчас играет: `" + title + "`.\nДля паузы отправьте команду `!pause`, для остановки произведения отправьте команду `!stop`, для перехода к следующей песне отправьте команду `!skip`.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                                } catch (Exception e) {
+                                    logger.error("Error in success handler: " + e.getMessage());
+                                }
+                            }
+                            playlisted = false;
                         })
                         .doOnError(err -> {
                             message.getChannel().sendMessage("Не получилось загрузить новую музыку.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
@@ -137,6 +243,8 @@ public class MusicBot {
                 Link link = maybeLink.get();
                 link.getPlayer().block().stopTrack().subscribe();
                 link.getNode().destroyPlayerAndLink(guildID).subscribe();
+                QueueManager qm = getQueueManager();
+                qm.clear(guildID);
                 message.getChannel().sendMessage("Проигрывание было завершено и очередь была очищена.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
                 BotLauncher.disconnect(message);
             }
@@ -162,5 +270,78 @@ public class MusicBot {
         }, err -> {
             message.getChannel().sendMessage("Не удалось переключить паузу.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         });
+    }
+
+    public void queue(Message message){
+        long guildId = message.getGuildIdLong();
+        QueueManager qm = getQueueManager();
+        List<Track> q = qm.getQueueList(guildId);
+        Track current = qm.getCurrent(guildId);
+
+        if (q.isEmpty() && current == null){
+            message.getChannel().sendMessage("Очередь пуста.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+        }
+
+        StringBuilder sb = new StringBuilder("**Текущий: **" + (current != null ? current.getInfo().getTitle() : "Нет") + "\n**Очередь (" + q.size() + "):**\n");
+        for (int i=0; i<Math.min(10, q.size()); i++){
+            sb.append((i+1)).append(". ").append(q.get(i).getInfo().getTitle()).append("\n");
+        }
+        message.getChannel().sendMessage(sb.toString()).queue();
+    }
+
+    public void skip(Message message){
+        long guildId = message.getGuildIdLong();
+        Link link = BotLauncher.getOrCreateLink(guildId);
+        link.getPlayer().block().stopTrack().subscribe();
+        getQueueManager().skip(guildId);
+        message.getChannel().sendMessage("Трек пропущен").queue();
+    }
+
+    public void clear(Message message){
+        long guildId = message.getGuildIdLong();
+        getQueueManager().clear(guildId);
+        message.getChannel().sendMessage("Очередь очищена.");
+    }
+}
+
+class QueueManager{
+    private final Map<Long, Deque<Track>> queues = new HashMap<>();
+    private final Map<Long, Track> currentTracks = new HashMap<>();
+
+    public void addToQueue(long guildId, Track track){
+        queues.computeIfAbsent(guildId, k -> new ArrayDeque<>()).add(track);
+    }
+
+    public Track getNext(long guildId){
+        Track next = queues.get(guildId).pollFirst();
+        if (next != null){
+            currentTracks.put(guildId, next);
+        }
+        return next;
+    }
+
+    public boolean hasNext(long guildId){
+        return queues.containsKey(guildId) && !queues.get(guildId).isEmpty();
+    }
+
+    public void setCurrent(long guildId, Track track){
+        currentTracks.put(guildId, track);
+    }
+
+    public Track getCurrent(long guildId){
+        return currentTracks.get(guildId);
+    }
+
+    public void clear(long guildId){
+        queues.remove(guildId);
+        currentTracks.remove(guildId);
+    }
+
+    public List<Track> getQueueList(long guildId){
+        return new ArrayList<>(queues.getOrDefault(guildId, new ArrayDeque<>()));
+    }
+
+    public void skip(long guildId){
+        currentTracks.remove(guildId);
     }
 }

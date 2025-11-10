@@ -182,14 +182,16 @@ public class TextCommands {
     public void clearMessages(MessageChannel channel, Message message, String content){
         if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] contentArr = content.split(" ");
-            int length = Integer.parseInt(contentArr[1]);
-            if (length<=49){
-                channel.getIterableHistory().takeAsync(length+1).thenAccept(messages -> {
-                    channel.purgeMessages(messages);
-                    channel.sendMessage("Успешно очищено " + length + " сообщений.").queue(msg -> {msg.delete().queueAfter(3, TimeUnit.SECONDS);});
-                }).exceptionally(error -> {logger.error("Произошла ошибка при удалении сообщений."); error.printStackTrace(); channel.sendMessage("Произошла ошибка при удалении сообщений.").queue(); return null;});
-            } else {
-                channel.sendMessage("<@" + message.getAuthor().getId() + ">, вы не можете удалить больше 50 сообщений за раз.\n-# Запрошено пользователем: " + message.getAuthor().getName() + getTime()).queue();
+            if (contentArr.length == 2){
+                int length = Integer.parseInt(contentArr[1]);
+                if (length<=49){
+                    channel.getIterableHistory().takeAsync(length+1).thenAccept(messages -> {
+                        channel.purgeMessages(messages);
+                        channel.sendMessage("Успешно очищено " + length + " сообщений.").queue(msg -> {msg.delete().queueAfter(3, TimeUnit.SECONDS);});
+                    }).exceptionally(error -> {logger.error("Произошла ошибка при удалении сообщений."); error.printStackTrace(); channel.sendMessage("Произошла ошибка при удалении сообщений.").queue(); return null;});
+                } else {
+                    channel.sendMessage("<@" + message.getAuthor().getId() + ">, вы не можете удалить больше 50 сообщений за раз.\n-# Запрошено пользователем: " + message.getAuthor().getName() + getTime()).queue();
+                }
             }
         }
     }

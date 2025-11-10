@@ -49,6 +49,12 @@ public class EventListener extends ListenerAdapter {
             musicBot.stop(message);
         } else if (content.startsWith("!pause")) {
             musicBot.pause(message);
+        } else if (content.startsWith("!skip")) {
+            musicBot.skip(message);
+        } else if (content.startsWith("!wipeQueue")) {
+            musicBot.clear(message);
+        } else if (content.startsWith("!queue")) {
+            musicBot.queue(message);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {
             textCommands.HelpCommand(channel, message);
         } else if (content.startsWith("!registerCommands")){

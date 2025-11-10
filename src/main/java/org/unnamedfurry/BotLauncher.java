@@ -3,9 +3,11 @@ package org.unnamedfurry;
 import dev.arbjerg.lavalink.client.*;
 import dev.arbjerg.lavalink.client.event.EmittedEvent;
 import dev.arbjerg.lavalink.client.event.StatsEvent;
+import dev.arbjerg.lavalink.client.event.TrackEndEvent;
 import dev.arbjerg.lavalink.client.event.TrackStartEvent;
 import dev.arbjerg.lavalink.client.loadbalancing.RegionGroup;
 import dev.arbjerg.lavalink.client.loadbalancing.builtin.VoiceRegionPenaltyProvider;
+import dev.arbjerg.lavalink.client.player.Track;
 import dev.arbjerg.lavalink.libraries.jda.JDAVoiceUpdateListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -20,7 +22,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,7 +31,7 @@ import java.util.List;
 
 public class BotLauncher extends ListenerAdapter {
     private static JDA bot;
-    final static Logger LOG = LoggerFactory.getLogger(BotLauncher.class);
+    final static Logger logger = LoggerFactory.getLogger(BotLauncher.class);
     public static String lavalinkPassword(){
         String password = "";
         try {
@@ -75,19 +76,30 @@ public class BotLauncher extends ListenerAdapter {
         bot = JDABuilder.createDefault(botToken()).addEventListeners(new EventListener()).addEventListeners(new SlashCommands()).enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.AUTO_MODERATION_CONFIGURATION, GatewayIntent.AUTO_MODERATION_EXECUTION, GatewayIntent.DIRECT_MESSAGE_REACTIONS, GatewayIntent.DIRECT_MESSAGE_TYPING, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MESSAGE_TYPING, GatewayIntent.GUILD_MODERATION, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_WEBHOOKS).setVoiceDispatchInterceptor(new JDAVoiceUpdateListener(client)).build().awaitReady();
     }
 
-    private static int oldBitrate = 0;
+    static int oldBitrate = 0;
 
     public static void connect(Message message){
-        VoiceChannel memberChannel = (VoiceChannel) message.getMember().getVoiceState().getChannel();
-        bot.getDirectAudioController().connect(memberChannel);
-        oldBitrate = memberChannel.getBitrate();
-        memberChannel.getManager().setBitrate(96);
+        try {
+            VoiceChannel memberChannel = (VoiceChannel) message.getMember().getVoiceState().getChannel();
+            bot.getDirectAudioController().connect(memberChannel);
+            oldBitrate = memberChannel.getBitrate();
+            logger.info("Old channel's bitrate: " + oldBitrate);
+            memberChannel.getManager().setBitrate(96000).queue();
+        } catch (Exception e) {
+            e.getMessage();
+            e.printStackTrace();
+        }
     }
 
     public static void disconnect(Message message){
-        VoiceChannel memberChannel = (VoiceChannel) message.getMember().getVoiceState().getChannel();
-        memberChannel.getManager().setBitrate(oldBitrate);
-        bot.getDirectAudioController().disconnect(message.getGuild());
+        try {
+            VoiceChannel memberChannel = (VoiceChannel) message.getMember().getVoiceState().getChannel();
+            memberChannel.getManager().setBitrate(oldBitrate).queue();
+            bot.getDirectAudioController().disconnect(message.getGuild());
+        } catch (Exception e) {
+            e.getMessage();
+            e.printStackTrace();
+        }
     }
 
     public static Link getOrCreateLink(long guildId){
@@ -101,7 +113,7 @@ public class BotLauncher extends ListenerAdapter {
     private static void registerLavalinkNodes(LavalinkClient client) {
         NodeOptions optionsRemote = new NodeOptions.Builder()
                 .setName("remote-node")
-                .setServerUri("ws://")
+                .setServerUri("ws://127.0.0.1:2333")
                 .setPassword(lavalinkPassword().trim())
                 .setRegionFilter(RegionGroup.EUROPE)
                 .build();
@@ -109,7 +121,7 @@ public class BotLauncher extends ListenerAdapter {
             node.on(TrackStartEvent.class).subscribe((event) -> {
                 final LavalinkNode node1 = event.getNode();
 
-                LOG.info(
+                logger.info(
                         "{}: track started: {}",
                         node1.getName(),
                         event.getTrack().getInfo()
@@ -122,7 +134,7 @@ public class BotLauncher extends ListenerAdapter {
         client.on(dev.arbjerg.lavalink.client.event.ReadyEvent.class).subscribe((event) -> {
             final LavalinkNode node = event.getNode();
 
-            LOG.info(
+            logger.info(
                     "Node '{}' is ready, session id is '{}'!",
                     node.getName(),
                     client.getNodes().get(0).getSessionId()
@@ -132,7 +144,7 @@ public class BotLauncher extends ListenerAdapter {
         client.on(StatsEvent.class).subscribe((event) -> {
             final LavalinkNode node = event.getNode();
 
-            LOG.info(
+            logger.info(
                     "Node '{}' has stats, current players: {}/{} (link count {})",
                     node.getName(),
                     event.getPlayingPlayers(),
@@ -143,16 +155,31 @@ public class BotLauncher extends ListenerAdapter {
 
         client.on(EmittedEvent.class).subscribe((event) -> {
             if (event instanceof TrackStartEvent) {
-                LOG.info("Is a track start event!");
+                logger.info("Is a track start event!");
             }
 
             final var node = event.getNode();
 
-            LOG.info(
+            logger.info(
                     "Node '{}' emitted event: {}",
                     node.getName(),
                     event
             );
+        });
+
+        client.on(TrackEndEvent.class).subscribe((event) -> {
+            long guildId = event.getGuildId();
+            QueueManager qm = MusicBot.getQueueManager();
+            Link link = client.getLinkIfCached(guildId);
+
+            if (qm.hasNext(guildId)){
+                Track next = qm.getNext(guildId);
+                link.getPlayer().block().setTrack(next)
+                        .doOnSuccess(p -> logger.info("Next track started: " + next.getInfo().getTitle()))
+                        .subscribe();
+            } else {
+                logger.info("Queue is empty for guild: " + guildId);
+            }
         });
     }
 
