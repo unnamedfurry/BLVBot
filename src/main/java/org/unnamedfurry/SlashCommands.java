@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.utils.SplitUtil;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class SlashCommands extends ListenerAdapter {
     final static Logger logger = LoggerFactory.getLogger(SlashCommands.class);
@@ -42,11 +44,14 @@ public class SlashCommands extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (event.getName().equals("help")){
-            event.reply(HelpCommand(event)).queue();
+            event.deferReply().queue();
+            for (String i : HelpCommand(event)){
+                event.reply(i).queue();
+            }
         }
     }
 
-    public String HelpCommand(SlashCommandInteractionEvent event){
+    public String[] HelpCommand(SlashCommandInteractionEvent event){
         try {
             Path jarDir = Paths.get(
                     BotLauncher.class.getProtectionDomain()
@@ -58,10 +63,19 @@ public class SlashCommands extends ListenerAdapter {
             //Path filePath = Path.of("help-menu.txt");
 
             String aboutText = Files.readString(filePath);
-            return aboutText + "\n-# Запрошено пользователем: " + event.getUser().getName() + ", " + getTime();
+            List<String> messages = SplitUtil.split(aboutText, 1986);
+            String[] returnArr = new String[messages.size()];
+            int counter = 0;
+            for (String part : messages){
+                returnArr[counter] = part;
+                counter++;
+            }
+            returnArr[counter+1] = "-# Запрошено пользователем: " + event.getUser().getName() + ", " + getTime();
+            return returnArr;
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            throw new RuntimeException(e);
+            logger.error("Caught an unexpected error while processing HelpSlashCommand!: {}", e.getMessage());
+            event.getMessageChannel().sendMessage("Произошла ошибка при обработке команды").queue();
+            return new String[]{""};
         }
     }
 }
@@ -79,15 +93,16 @@ class SlashVerification{
         boolean bypassedVerification = false;
         Member member = message.getMember();
         try {
-            if (member.getId().equals("897054945889644564") || member.hasPermission(Permission.ADMINISTRATOR) || checkRoles(message)){
+            if (Objects.requireNonNull(member).getId().equals("897054945889644564") || member.hasPermission(Permission.ADMINISTRATOR) || checkRoles(message)){
                 bypassedVerification = true;
             } else {
                 channel.sendMessage("<@" + member.getId() + "> , у вас нет прав для выполнения этого действия! Проверьте наличие обязательных прав для выполнения или обратитесь к администратору/овнеру сервера.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-                logger.info("Запрошена команда (" + message.getContentRaw() + ") участником (" + message.getAuthor() + ") без следующих прав: Администратор, Овнер или Создатель бота.");
+                logger.info("Запрошена команда ({}) участником ({}) без следующих прав: Администратор, Овнер или Создатель бота.", message.getContentRaw(), message.getAuthor());
             }
         } catch (Exception e) {
             channel.sendMessage("Произошла неивзестная ошибка при обработке команды. Обратитесь к создателю бота @unnamed_furry.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-            throw new RuntimeException(e);
+            logger.error("Caught an unexpected error while checking user's permissiona!: {}", e.getMessage());
+            return false;
         }
         return bypassedVerification;
     }
@@ -103,7 +118,7 @@ class SlashVerification{
 
         if (file.exists()){
             String json = Files.readString(file.toPath());
-            Guild guild = message.getGuild();;
+            Guild guild = message.getGuild();
             JSONObject object = new JSONObject(json);
             JSONArray array = object.getJSONArray(guild.getId());
             String[] existingRolesArr = new String[array.length()];

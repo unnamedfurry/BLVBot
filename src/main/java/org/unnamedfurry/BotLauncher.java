@@ -13,21 +13,16 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.events.session.ReadyEvent;
-import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 
 public class BotLauncher extends ListenerAdapter {
     private static JDA bot;
@@ -44,8 +39,7 @@ public class BotLauncher extends ListenerAdapter {
             password = Files.readString(jarDir.resolve("lavalink_password.txt")).trim();
             //String password = Files.readString(Path.of("lavalink_password.txt")).trim();
         } catch (Exception e) {
-            e.getMessage();
-            e.printStackTrace();
+            logger.error("Caught an error while parsing lavalink password!: {}", e.getMessage());
         }
         return password;
     }
@@ -62,8 +56,7 @@ public class BotLauncher extends ListenerAdapter {
             token = Files.readString(jarDir.resolve("bot_token.txt")).trim();
             //token = Files.readString(Path.of("bot_token.txt")).trim();
         } catch (Exception e){
-            e.getMessage();
-            e.printStackTrace();
+            logger.error("Caught an error while parsing bot token!: {}", e.getMessage());
         }
         return token;
     }
@@ -80,25 +73,25 @@ public class BotLauncher extends ListenerAdapter {
 
     public static void connect(Message message){
         try {
-            VoiceChannel memberChannel = (VoiceChannel) message.getMember().getVoiceState().getChannel();
-            bot.getDirectAudioController().connect(memberChannel);
+            VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(Objects.requireNonNull(message.getMember()).getVoiceState()).getChannel();
+            bot.getDirectAudioController().connect(Objects.requireNonNull(memberChannel));
             oldBitrate = memberChannel.getBitrate();
-            logger.info("Old channel's bitrate: " + oldBitrate);
+            logger.info("Old channel's bitrate: {}", oldBitrate);
             memberChannel.getManager().setBitrate(96000).queue();
         } catch (Exception e) {
-            e.getMessage();
-            e.printStackTrace();
+            logger.error("Caught an error while connecting to the channel!: {}", e.getMessage());
+            message.getChannel().sendMessage("Возникла непредвиденная ошибка во время подключения к войсу.").queue();
         }
     }
 
     public static void disconnect(Message message){
         try {
-            VoiceChannel memberChannel = (VoiceChannel) message.getMember().getVoiceState().getChannel();
-            memberChannel.getManager().setBitrate(oldBitrate).queue();
+            VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(Objects.requireNonNull(message.getMember()).getVoiceState()).getChannel();
+            Objects.requireNonNull(memberChannel).getManager().setBitrate(oldBitrate).queue();
             bot.getDirectAudioController().disconnect(message.getGuild());
         } catch (Exception e) {
-            e.getMessage();
-            e.printStackTrace();
+            logger.error("Caught an error while leaving to the channel!: {}", e.getMessage());
+            message.getChannel().sendMessage("Возникла непредвиденная ошибка во время отключения от войса.").queue();
         }
     }
 
@@ -137,7 +130,7 @@ public class BotLauncher extends ListenerAdapter {
             logger.info(
                     "Node '{}' is ready, session id is '{}'!",
                     node.getName(),
-                    client.getNodes().get(0).getSessionId()
+                    client.getNodes().getFirst().getSessionId()
             );
         });
 
@@ -174,32 +167,12 @@ public class BotLauncher extends ListenerAdapter {
 
             if (qm.hasNext(guildId)){
                 Track next = qm.getNext(guildId);
-                link.getPlayer().block().setTrack(next)
-                        .doOnSuccess(p -> logger.info("Next track started: " + next.getInfo().getTitle()))
+                Objects.requireNonNull(Objects.requireNonNull(link).getPlayer().block()).setTrack(next)
+                        .doOnSuccess(p -> logger.info("Next track started: {}", next.getInfo().getTitle()))
                         .subscribe();
             } else {
-                logger.info("Queue is empty for guild: " + guildId);
+                logger.info("Queue is empty for guild: {}", guildId);
             }
         });
-    }
-
-    @Override
-    public void onReady(@NotNull ReadyEvent event){
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-        String time = LocalTime.now().format(timeFormatter);
-        MessageChannel channel = bot.getTextChannelById("1433490601487368192");
-        assert channel != null;
-        channel.sendMessage("Бот включился.\n-# Время: " + time).queue();
-        System.out.println("Finished loading!");
-    }
-
-    @Override
-    public void onShutdown(@NotNull ShutdownEvent event){
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-        String time = LocalTime.now().format(timeFormatter);
-        MessageChannel channel = bot.getTextChannelById("1433490601487368192");
-        assert channel != null;
-        channel.sendMessage("Бот выключился.\n-# Время: " + time).queue();
-        System.out.println("Shutting down!");
     }
 }

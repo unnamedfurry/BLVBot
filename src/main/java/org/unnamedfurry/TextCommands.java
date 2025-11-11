@@ -22,6 +22,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class TextCommands {
@@ -76,8 +77,8 @@ public class TextCommands {
                 logger.error("Requested command: " + message.getContentRaw() + ", Generated Link: " + avatarURL);
             }
         } catch (Exception e) {
-            logger.error(e.toString());
-            logger.error("Requested command: " + message.getContentRaw());
+            logger.error("Error while processing avatar command: {}", e.getMessage());
+            logger.error("Requested command: {}", message.getContentRaw());
         }
     }
 
@@ -96,6 +97,8 @@ public class TextCommands {
                         (v) -> channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно забанен " + message.getAuthor().getName() + " по причине: " + messageArr[2] + "\n-# " + getTime()).queue(),
                         (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось забанить: <@" + messageArr[1] + ">, причина: этого пользователя нельзя забанить либо же он уже забанен.\n-# " + getTime()).queue()
                 );
+            } else {
+                channel.sendMessage("Неправильное использование команды! Проверьте синтаксис команды через !help или !usage.").queue();
             }
         }
     }
@@ -103,10 +106,14 @@ public class TextCommands {
     public void unbanCommand(MessageChannel channel, Message message, String content){
         if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] messageArr = content.split(" ");
-            Guild guild = message.getGuild();
-            UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
-            guild.unban(snowflake).queue();
-            channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно разбанен " + message.getAuthor().getName() + ".\n-# " + getTime()).queue();
+            if (messageArr.length == 2){
+                Guild guild = message.getGuild();
+                UserSnowflake snowflake = UserSnowflake.fromId(messageArr[1]);
+                guild.unban(snowflake).queue();
+                channel.sendMessage("Пользователь <@" + snowflake.getId() + "> был успешно разбанен " + message.getAuthor().getName() + ".\n-# " + getTime()).queue();
+            } else {
+                channel.sendMessage("Неправильное использование команды! Проверьте синтаксис команды через !help или !usage.").queue();
+            }
         }
     }
 
@@ -174,7 +181,7 @@ public class TextCommands {
                     throw new RuntimeException(e);
                 }
             } else {
-                channel.sendMessage("Неправильное использование команды! Проверьте синтаксис команды (правильный синтаксис: `!whitelistRole add/remove <role_id>`) и повторите попытку. Код ошибки: R-2\n-# Запрошено пользвателем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                channel.sendMessage("<@" + message.getAuthor().getId() + ", неправильное использование команды. Проверьте синтаксис командой !help или !usage.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
             }
         }
     }
@@ -188,7 +195,7 @@ public class TextCommands {
                     channel.getIterableHistory().takeAsync(length+1).thenAccept(messages -> {
                         channel.purgeMessages(messages);
                         channel.sendMessage("Успешно очищено " + length + " сообщений.").queue(msg -> {msg.delete().queueAfter(3, TimeUnit.SECONDS);});
-                    }).exceptionally(error -> {logger.error("Произошла ошибка при удалении сообщений."); error.printStackTrace(); channel.sendMessage("Произошла ошибка при удалении сообщений.").queue(); return null;});
+                    }).exceptionally(error -> {logger.error("Произошла ошибка при удалении сообщений."); logger.warn("Caught and error while processing clearMessages command: {}", error.getMessage()); channel.sendMessage("Произошла ошибка при удалении сообщений.").queue(); return null;});
                 } else {
                     channel.sendMessage("<@" + message.getAuthor().getId() + ">, вы не можете удалить больше 50 сообщений за раз.\n-# Запрошено пользователем: " + message.getAuthor().getName() + getTime()).queue();
                 }
@@ -211,6 +218,8 @@ public class TextCommands {
                         (v) -> channel.sendMessage("<@" + messageArr[1] + "> был успешно кикнут с сервера <@" + message.getAuthor().getId() + "> по причине: " + messageArr[2] + ".\n-# " + getTime()).queue(),
                         (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось кикнуть <@" + snowflake.getId() + "> по причине: этого участника нельзя кикнуть либо же он уже кикнут.\n-# " + getTime()).queue()
                 );
+            } else {
+                channel.sendMessage("<@" + message.getAuthor().getId() + ", неправильное использование команды. Проверьте синтаксис командой !help или !usage.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
             }
         }
     }
@@ -218,37 +227,39 @@ public class TextCommands {
     public void timeoutCommand(MessageChannel channel, Message message, String content){
         if (TextVerification.allowedExecAdminCommands(message, channel)){
             String[] messageArr = content.split(" ");
-            Guild guild = message.getGuild();
-            UserSnowflake snowflake = UserSnowflake.fromId(messageArr[2]);
-            if (messageArr[1].equals("60s") || messageArr[1].equals("5m") || messageArr[1].equals("10m") || messageArr[1].equals("1h") || messageArr[1].equals("1d") || messageArr[1].equals("1w")){
-                switch (messageArr[1]) {
-                    case "60s" -> guild.timeoutFor(snowflake, 1, TimeUnit.MINUTES).queue(
-                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 минута <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
-                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут\n-# " + getTime()).queue()
-                    );
-                    case "5m" -> guild.timeoutFor(snowflake, 5, TimeUnit.MINUTES).queue(
-                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 5 минут <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
-                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
-                    );
-                    case "10m" -> guild.timeoutFor(snowflake, 10, TimeUnit.MINUTES).queue(
-                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 10 минут <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
-                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
-                    );
-                    case "1h" -> guild.timeoutFor(snowflake, 1, TimeUnit.HOURS).queue(
-                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 час <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
-                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
-                    );
-                    case "1d" -> guild.timeoutFor(snowflake, 1, TimeUnit.DAYS).queue(
-                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 день <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
-                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
-                    );
-                    case "1w" -> guild.timeoutFor(snowflake, 7, TimeUnit.DAYS).queue(
-                            (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 неделя <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
-                            (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
-                    );
+            if (messageArr.length == 3){
+                Guild guild = message.getGuild();
+                UserSnowflake snowflake = UserSnowflake.fromId(messageArr[2]);
+                if (messageArr[1].equals("60s") || messageArr[1].equals("5m") || messageArr[1].equals("10m") || messageArr[1].equals("1h") || messageArr[1].equals("1d") || messageArr[1].equals("1w")){
+                    switch (messageArr[1]) {
+                        case "60s" -> guild.timeoutFor(snowflake, 1, TimeUnit.MINUTES).queue(
+                                (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 минута <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                                (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут\n-# " + getTime()).queue()
+                        );
+                        case "5m" -> guild.timeoutFor(snowflake, 5, TimeUnit.MINUTES).queue(
+                                (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 5 минут <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                                (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                        );
+                        case "10m" -> guild.timeoutFor(snowflake, 10, TimeUnit.MINUTES).queue(
+                                (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 10 минут <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                                (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                        );
+                        case "1h" -> guild.timeoutFor(snowflake, 1, TimeUnit.HOURS).queue(
+                                (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 час <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                                (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                        );
+                        case "1d" -> guild.timeoutFor(snowflake, 1, TimeUnit.DAYS).queue(
+                                (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 день <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                                (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                        );
+                        case "1w" -> guild.timeoutFor(snowflake, 7, TimeUnit.DAYS).queue(
+                                (v) -> channel.sendMessage("<@" + messageArr[2] + "> был успешно отправлен в таймаут на время: 1 неделя <@" + message.getAuthor().getId() + "> по причине: не указано.\n-# " + getTime()).queue(),
+                                (error) -> channel.sendMessage("<@" + message.getAuthor().getId() + ">, не удалось отправить в таймаут <@" + snowflake.getId() + "> по причине: этого участника нельзя отправить в таймаут.\n-# " + getTime()).queue()
+                        );
+                    }
                 }
             } else {
-                channel.sendMessage("<@" + message.getAuthor().getId() + ", неправильное использование команды !timeout. Полный список с обьяснением можно посмотреть по команде !help или !usage.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                channel.sendMessage("<@" + message.getAuthor().getId() + ", неправильное использование команды. Проверьте синтаксис командой !help или !usage.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
             }
         }
     }
@@ -290,7 +301,7 @@ class TextVerification{
         boolean bypassedVerification = false;
         Member member = message.getMember();
         try {
-            if (member.getId().equals("897054945889644564") || member.hasPermission(Permission.ADMINISTRATOR) || checkRoles(message)){
+            if (Objects.requireNonNull(member).getId().equals("897054945889644564") || member.hasPermission(Permission.ADMINISTRATOR) || checkRoles(message)){
                 bypassedVerification = true;
             } else {
                 channel.sendMessage("<@" + member.getId() + "> , у вас нет прав для выполнения этого действия! Проверьте наличие обязательных прав для выполнения или обратитесь к администратору/овнеру сервера.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
@@ -314,7 +325,7 @@ class TextVerification{
 
         if (file.exists()){
             String json = Files.readString(file.toPath());
-            Guild guild = message.getGuild();;
+            Guild guild = message.getGuild();
             JSONObject object = new JSONObject(json);
             JSONArray array = object.getJSONArray(guild.getId());
             String[] existingRolesArr = new String[array.length()];
