@@ -7,7 +7,7 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.utils.SplitUtil;
 import org.json.JSONArray;
@@ -26,7 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public class SlashCommands extends ListenerAdapter {
+public class SlashCommands {
     final static Logger logger = LoggerFactory.getLogger(SlashCommands.class);
     public static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
@@ -36,46 +36,24 @@ public class SlashCommands extends ListenerAdapter {
         return "Дата: " + date + ", Время: " + time;
     }
 
-    public void commandRegistration(Message message){
-        Guild guild = message.getGuild();
-        guild.updateCommands().addCommands(Commands.slash("help", "Выводит список доступных команд.")).queue();
-    }
-
-    @Override
-    public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (event.getName().equals("help")){
-            event.deferReply().queue();
-            for (String i : HelpCommand(event)){
-                event.reply(i).queue();
-            }
-        }
-    }
-
-    public String[] HelpCommand(SlashCommandInteractionEvent event){
+    public String HelpCommand(SlashCommandInteractionEvent event){
         try {
-            Path jarDir = Paths.get(
+            /*Path jarDir = Paths.get(
                     BotLauncher.class.getProtectionDomain()
                             .getCodeSource()
                             .getLocation()
                             .toURI()
             ).getParent();
-            Path filePath = jarDir.resolve("help-menu.txt");
-            //Path filePath = Path.of("help-menu.txt");
+            Path filePath = jarDir.resolve("help-menu.txt");*/
+            Path filePath = Path.of("short-menu.txt");
 
             String aboutText = Files.readString(filePath);
-            List<String> messages = SplitUtil.split(aboutText, 1986);
-            String[] returnArr = new String[messages.size()];
-            int counter = 0;
-            for (String part : messages){
-                returnArr[counter] = part;
-                counter++;
-            }
-            returnArr[counter+1] = "-# Запрошено пользователем: " + event.getUser().getName() + ", " + getTime();
-            return returnArr;
+            aboutText += "-# Запрошено пользователем: " + event.getUser().getName() + ", " + getTime();
+            return aboutText;
         } catch (Exception e) {
             logger.error("Caught an unexpected error while processing HelpSlashCommand!: {}", e.getMessage());
             event.getMessageChannel().sendMessage("Произошла ошибка при обработке команды").queue();
-            return new String[]{""};
+            return "";
         }
     }
 }

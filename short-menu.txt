@@ -1,0 +1,12 @@
+Список комманд:
+1. `!help`/`!usage`
+2. `!ping`
+3. `!avatar <user_id>`
+4. `!ban <user_id>`
+5. `!unban <user_id>`
+6. `!whitelistRole <role_id>`
+7. `!kick <user_id>`
+8. `!timeout <duration> <user_id>`
+9. `!play <song_url>`/`!play <song name>`
+10. `!stop`
+11. `!pause`

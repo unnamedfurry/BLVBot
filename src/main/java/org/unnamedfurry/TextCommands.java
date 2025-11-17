@@ -1,8 +1,13 @@
 package org.unnamedfurry;
 
+import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.interactions.commands.Command;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.SplitUtil;
 import org.slf4j.Logger;
@@ -261,6 +266,36 @@ public class TextCommands {
             } else {
                 channel.sendMessage("<@" + message.getAuthor().getId() + ", неправильное использование команды. Проверьте синтаксис командой !help или !usage.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
             }
+        }
+    }
+
+    public void clearCommands(MessageChannel channel, MessageReceivedEvent event){
+        if (event.getAuthor().getId().equals("897054945889644564")){
+            JDA bot = event.getJDA();
+            bot.retrieveCommands().queue(commands -> {
+                for (Command command : commands){
+                    command.delete().queue();
+                }
+            });
+            channel.sendMessage("Успешно очищены все слеш-команды для этого сервера.").queue();
+        } else {
+            channel.sendMessage("Только создатель бота может выполнять эти команды.").queue();
+        }
+    }
+
+    public void registerCommands(MessageChannel channel, MessageReceivedEvent event){
+        if (event.getAuthor().getId().equals("897054945889644564")){
+            JDA bot = event.getJDA();
+            bot.updateCommands()
+                    .addCommands(Commands
+                            .slash("help", "выводит список доступных команд."))
+                    .addCommands(Commands
+                            .slash("text-embed-gen", "отправляет в чат embed-сообщение основываясь на введенном тексте и загруженных файлах")
+                            .addOption(OptionType.ATTACHMENT, "main-embed-pic", "просто загрузи заебал"))
+                    .queue();
+            channel.sendMessage("Глобальные команды зарегестрированы успешно").queue();
+        } else {
+            channel.sendMessage("Только создатель бота может выполнять эти команды.").queue();
         }
     }
 

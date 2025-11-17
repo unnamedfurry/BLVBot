@@ -27,7 +27,8 @@ import java.util.Objects;
 public class BotLauncher extends ListenerAdapter {
     private static JDA bot;
     final static Logger logger = LoggerFactory.getLogger(BotLauncher.class);
-    public static String lavalinkPassword(){
+
+    public static String lavalinkPassword() {
         String password = "";
         try {
             Path jarDir = Paths.get(
@@ -44,7 +45,7 @@ public class BotLauncher extends ListenerAdapter {
         return password;
     }
 
-    private static String botToken(){
+    private static String botToken() {
         String token = "";
         try {
             Path jarDir = Paths.get(
@@ -55,23 +56,26 @@ public class BotLauncher extends ListenerAdapter {
             ).getParent();
             token = Files.readString(jarDir.resolve("bot_token.txt")).trim();
             //token = Files.readString(Path.of("bot_token.txt")).trim();
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.error("Caught an error while parsing bot token!: {}", e.getMessage());
         }
         return token;
     }
 
     public static final LavalinkClient client = new LavalinkClient(Helpers.getUserIdFromToken(botToken()));
-    public static void main(String[] args) throws Exception{
+
+    public static void main(String[] args) throws Exception {
         client.getLoadBalancer().addPenaltyProvider(new VoiceRegionPenaltyProvider());
         registerLavalinkListeners(client);
         registerLavalinkNodes(client);
-        bot = JDABuilder.createDefault(botToken()).addEventListeners(new EventListener()).addEventListeners(new SlashCommands()).enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.AUTO_MODERATION_CONFIGURATION, GatewayIntent.AUTO_MODERATION_EXECUTION, GatewayIntent.DIRECT_MESSAGE_REACTIONS, GatewayIntent.DIRECT_MESSAGE_TYPING, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MESSAGE_TYPING, GatewayIntent.GUILD_MODERATION, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_WEBHOOKS).setVoiceDispatchInterceptor(new JDAVoiceUpdateListener(client)).build().awaitReady();
+        bot = JDABuilder.createDefault(botToken()).addEventListeners(new EventListener())
+                .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.AUTO_MODERATION_CONFIGURATION, GatewayIntent.AUTO_MODERATION_EXECUTION, GatewayIntent.DIRECT_MESSAGE_REACTIONS, GatewayIntent.DIRECT_MESSAGE_TYPING, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MESSAGE_TYPING, GatewayIntent.GUILD_MODERATION, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_WEBHOOKS)
+                .setVoiceDispatchInterceptor(new JDAVoiceUpdateListener(client)).build().awaitReady();
     }
 
     static int oldBitrate = 0;
 
-    public static void connect(Message message){
+    public static void connect(Message message) {
         try {
             VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(Objects.requireNonNull(message.getMember()).getVoiceState()).getChannel();
             bot.getDirectAudioController().connect(Objects.requireNonNull(memberChannel));
@@ -84,7 +88,7 @@ public class BotLauncher extends ListenerAdapter {
         }
     }
 
-    public static void disconnect(Message message){
+    public static void disconnect(Message message) {
         try {
             VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(Objects.requireNonNull(message.getMember()).getVoiceState()).getChannel();
             Objects.requireNonNull(memberChannel).getManager().setBitrate(oldBitrate).queue();
@@ -95,11 +99,11 @@ public class BotLauncher extends ListenerAdapter {
         }
     }
 
-    public static Link getOrCreateLink(long guildId){
+    public static Link getOrCreateLink(long guildId) {
         return client.getOrCreateLink(guildId);
     }
 
-    public static Link getLinkIfCashed(long guildId){
+    public static Link getLinkIfCashed(long guildId) {
         return client.getLinkIfCached(guildId);
     }
 
@@ -165,7 +169,7 @@ public class BotLauncher extends ListenerAdapter {
             QueueManager qm = MusicBot.getQueueManager();
             Link link = client.getLinkIfCached(guildId);
 
-            if (qm.hasNext(guildId)){
+            if (qm.hasNext(guildId)) {
                 Track next = qm.getNext(guildId);
                 Objects.requireNonNull(Objects.requireNonNull(link).getPlayer().block()).setTrack(next)
                         .doOnSuccess(p -> logger.info("Next track started: {}", next.getInfo().getTitle()))
