@@ -290,8 +290,29 @@ public class TextCommands {
                     .addCommands(Commands
                             .slash("help", "выводит список доступных команд."))
                     .addCommands(Commands
-                            .slash("text-embed-gen", "отправляет в чат embed-сообщение основываясь на введенном тексте и загруженных файлах")
+                            .slash("tenzra-embed-gen", "отправляет в чат embed-сообщение основываясь на введенном тексте и загруженных файлах")
                             .addOption(OptionType.ATTACHMENT, "main-embed-pic", "просто загрузи заебал"))
+                    .addCommands(Commands
+                            .slash("save-embed-template", "сохраняет шаблон embed-сообщения в память бота")
+                            .addOption(OptionType.STRING, "имя-шаблона", "имя шаблона", true)
+
+                            .addOption(OptionType.STRING, "главный-текст", "главный текст", false)
+                            .addOption(OptionType.STRING, "основной-текст", "что ты хочешь видеть в embed-сообщении (опационально)", false)
+                            .addOption(OptionType.ATTACHMENT, "файл-embed", "какой файл будет отправлен вместе с embed-сообщением (опционально)", false)
+
+                            .addOption(OptionType.STRING, "вложенное-имя-бота", "от какого имени будет отправлено embed-сообщение (опционально)", false)
+                            .addOption(OptionType.STRING, "вложенный-главный-текст", "главный текст внутри embed сообщения", false)
+                            .addOption(OptionType.STRING, "вложенный-основной-текст", "что ты хочешь видеть в embed-сообщении (опационально)", false)
+                            .addOption(OptionType.ATTACHMENT, "вложенный-файл-embed", "какой файл будет отправлен вместе с embed-сообщением (опционально)", false)
+                    )
+                    .addCommands(Commands
+                            .slash("send-embed-template", "отправляет в чат ваше embed сообщение")
+                            .addOption(OptionType.STRING, "имя-шаблона", "имя шаблона", true)
+                            .addOption(OptionType.STRING, "айди-канала", "айди канала, куда нужно отправить сообщение", false))
+                    .addCommands(Commands
+                            .slash("delete-embed-template", "удаляет отправленное вами embed сообщение")
+                            .addOption(OptionType.STRING, "айди-сообщения", "айди сообщения", true)
+                            .addOption(OptionType.STRING, "айди-канала", "айди канала, откуда нужно удалить сообщение", false))
                     .queue();
             channel.sendMessage("Глобальные команды зарегестрированы успешно").queue();
         } else {

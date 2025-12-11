@@ -80,16 +80,16 @@ public class MusicBot {
                 }
 
                 String encodedTrack;
-                JSONObject first = new JSONObject();
+                JSONObject jsonObject = new JSONObject();
                 if ("track".equals(loadType)) {
                     JSONObject data = json.getJSONObject("data");
                     encodedTrack = data.getString("encoded");
                     json = data.getJSONObject("info");
                 } else if (json.has("tracks")) {
                     JSONArray tracks = json.getJSONArray("tracks");
-                    first = tracks.getJSONObject(0);
-                    encodedTrack = first.getString("track");
-                    json = first.getJSONObject("info");
+                    jsonObject = tracks.getJSONObject(0);
+                    encodedTrack = jsonObject.getString("track");
+                    json = jsonObject.getJSONObject("info");
                 } else if ("search".equals(loadType)) {
                     JSONArray searchResults = json.getJSONArray("data");
                     if (searchResults.isEmpty()){

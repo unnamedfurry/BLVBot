@@ -7,9 +7,6 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.utils.SplitUtil;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -38,14 +35,14 @@ public class SlashCommands {
 
     public String HelpCommand(SlashCommandInteractionEvent event){
         try {
-            /*Path jarDir = Paths.get(
+            Path jarDir = Paths.get(
                     BotLauncher.class.getProtectionDomain()
                             .getCodeSource()
                             .getLocation()
                             .toURI()
             ).getParent();
-            Path filePath = jarDir.resolve("help-menu.txt");*/
-            Path filePath = Path.of("short-menu.txt");
+            Path filePath = jarDir.resolve("help-menu.txt");
+            //Path filePath = Path.of("short-menu.txt");
 
             String aboutText = Files.readString(filePath);
             aboutText += "-# Запрошено пользователем: " + event.getUser().getName() + ", " + getTime();

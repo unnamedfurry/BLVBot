@@ -29,8 +29,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 
-public class TicketBot {
-    final static Logger logger = LoggerFactory.getLogger(TicketBot.class);
+public class TenzraTicketBot {
+    final static Logger logger = LoggerFactory.getLogger(TenzraTicketBot.class);
     public void textEmbedGen(SlashCommandInteractionEvent event){
         try {
             EmbedBuilder builder = new EmbedBuilder();
@@ -140,7 +140,7 @@ public class TicketBot {
     }
 }
 
-class TicketVerification{
+class TenzraTicketVerification{
     public static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
