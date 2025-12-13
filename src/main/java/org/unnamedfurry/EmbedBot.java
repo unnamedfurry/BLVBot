@@ -133,7 +133,7 @@ public class EmbedBot {
             JSONObject object = new JSONObject(content);
 
             if (!object.has(templateName)){
-                channel.sendMessage("Шаблона с таким названием не существует.").queue();
+                event.reply("Шаблона с таким названием не существует.").setEphemeral(true).queue();
                 return;
             }
 
@@ -153,7 +153,7 @@ public class EmbedBot {
             if (!embedLargeText.equals("null")) embedBuilder.setTitle(embedLargeText);
             if (!embedDefaultText.equals("null")) embedBuilder.setDescription(embedDefaultText);
             if (!embedFileUrl.equals("null")) embedBuilder.setImage(embedFileUrl);
-            MessageEmbed embed = embedBuilder.build();
+
 
             MessageCreateBuilder messageBuilder = new MessageCreateBuilder();
             if (!mainDefaultText.equals("null")) messageBuilder.setContent(mainDefaultText);
@@ -162,10 +162,15 @@ public class EmbedBot {
                 FileUpload upload = FileUpload.fromData(mainFile, mainFileFilename);
                 messageBuilder.setFiles(upload);
             }
-            messageBuilder.addEmbeds(embed);
+
+            if (!embedBuilder.isEmpty()){
+                MessageEmbed embed = embedBuilder.build();
+                messageBuilder.addEmbeds(embed);
+            }
             MessageCreateData message = messageBuilder.build();
 
             channel.sendMessage(message).queue();
+            event.reply("Успешно.").setEphemeral(true).queue();
         } catch (Exception e){
             log.error("Caught an unexpected error while sending embed message: \n {} \n {}", e.getMessage(), e.getStackTrace());
             event.reply("Не удалось отправить ваше embed-сообщение.").setEphemeral(true).queue();

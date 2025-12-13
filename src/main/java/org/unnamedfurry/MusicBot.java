@@ -72,8 +72,6 @@ public class MusicBot {
                 }
                 JSONObject json = new JSONObject(resp.body());
                 String loadType = json.optString("loadType", "NO_MATCHES");
-                logger.info("Response from Lavalink: ");
-                logger.info(resp.body());
                 if ("NO_MATCHES".equalsIgnoreCase(loadType)) {
                     message.getChannel().sendMessage("Не удалось найти запрашиваемый трек.").queue();
                     return;
@@ -110,7 +108,6 @@ public class MusicBot {
                 encodedTrack = encodedTrack.trim();
                 encodedTrack = encodedTrack.replaceAll("\\s", "");
                 encodedTrack = URLEncoder.encode(encodedTrack, StandardCharsets.UTF_8);
-                logger.info("Encoded and cleared track: " + encodedTrack);
                 link.getNode().decodeTrack(encodedTrack)
                         .flatMap(track -> {
                             QueueManager qm = getQueueManager();
