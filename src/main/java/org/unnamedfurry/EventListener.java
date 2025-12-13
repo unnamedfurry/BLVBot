@@ -173,6 +173,16 @@ public class EventListener extends ListenerAdapter {
                 messageId = option2.getAsString();
             }
             ticketBot.deleteSentEmbed(event, channelId, messageId);
+        } else if (event.getName().equals("say")) {
+            OptionMapping option2 = event.getInteraction().getOption("текст");
+            String text;
+            if (option2 == null){
+                text = "";
+            } else {
+                text = option2.getAsString();
+            }
+            channel.sendMessage(text).queue();
+            event.reply("Успешно.").queue();
         }
     }
 

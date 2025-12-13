@@ -313,6 +313,9 @@ public class TextCommands {
                             .slash("delete-embed-template", "удаляет отправленное вами embed сообщение")
                             .addOption(OptionType.STRING, "айди-сообщения", "айди сообщения", true)
                             .addOption(OptionType.STRING, "айди-канала", "айди канала, откуда нужно удалить сообщение", false))
+                    .addCommands(Commands
+                            .slash("say", "отправляет в чат ваше сообщение")
+                            .addOption(OptionType.STRING, "текст", "текст сообщения", true))
                     .queue();
             channel.sendMessage("Глобальные команды зарегестрированы успешно").queue();
         } else {
