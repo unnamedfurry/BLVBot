@@ -310,20 +310,20 @@ public class TextCommands {
                             .addOption(OptionType.STRING, "вложенный-главный-текст", "главный текст внутри embed сообщения", false)
                             .addOption(OptionType.STRING, "вложенный-основной-текст", "что ты хочешь видеть в embed-сообщении (опационально)", false)
                             .addOption(OptionType.ATTACHMENT, "вложенный-файл-embed", "какой файл будет отправлен вместе с embed-сообщением (опционально)", false)
-                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL)
                             .setContexts(InteractionContextType.ALL)
                     )
                     .addCommands(Commands
                             .slash("send-embed-template", "отправляет в чат ваше embed сообщение")
                             .addOption(OptionType.STRING, "имя-шаблона", "имя шаблона", true)
                             .addOption(OptionType.STRING, "айди-канала", "айди канала, куда нужно отправить сообщение", false)
-                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL)
                             .setContexts(InteractionContextType.ALL))
                     .addCommands(Commands
                             .slash("delete-embed-template", "удаляет отправленное вами embed сообщение")
                             .addOption(OptionType.STRING, "айди-сообщения", "айди сообщения", true)
                             .addOption(OptionType.STRING, "айди-канала", "айди канала, откуда нужно удалить сообщение", false)
-                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL)
                             .setContexts(InteractionContextType.ALL))
                     .addCommands(Commands
                             .slash("say", "отправляет в чат ваше сообщение")

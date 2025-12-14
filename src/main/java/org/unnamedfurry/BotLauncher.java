@@ -11,7 +11,9 @@ import dev.arbjerg.lavalink.client.player.Track;
 import dev.arbjerg.lavalink.libraries.jda.JDAVoiceUpdateListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -73,6 +75,14 @@ public class BotLauncher extends ListenerAdapter {
         bot = JDABuilder.createDefault(botToken()).addEventListeners(new EventListener())
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.AUTO_MODERATION_CONFIGURATION, GatewayIntent.AUTO_MODERATION_EXECUTION, GatewayIntent.DIRECT_MESSAGE_REACTIONS, GatewayIntent.DIRECT_MESSAGE_TYPING, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MESSAGE_TYPING, GatewayIntent.GUILD_MODERATION, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_WEBHOOKS)
                 .setVoiceDispatchInterceptor(new JDAVoiceUpdateListener(client)).build().awaitReady();
+    }
+
+    public boolean presentInChannel(Guild guild){
+        if (bot.getGuilds().contains(guild)){
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public MessageChannel getNewMessageChannel(String channelId){

@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -79,6 +80,7 @@ public class EventListener extends ListenerAdapter {
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
 
         MessageChannel channel = event.getChannel();
+        BotLauncher bot = new BotLauncher();
 
         if (event.getName().equals("help")){
             String a = slashCommands.HelpCommand(event);
@@ -181,8 +183,18 @@ public class EventListener extends ListenerAdapter {
             } else {
                 text = option2.getAsString();
             }
-            channel.sendMessage(text).queue();
-            event.reply("Успешно.").setEphemeral(true).queue();
+
+            if (event.getGuild() != null && bot.presentInChannel(event.getGuild())) {
+                channel.sendMessage(text).queue();
+                event.reply("Успешно.").setEphemeral(true).queue();
+            } else {
+                event.reply(text).setEphemeral(false).queue(
+                        success -> {},
+                        failure -> {
+                            event.reply("Не удалось отправить сообщение в этот канал.").setEphemeral(true).queue();
+                        }
+                );
+            }
         }
     }
 
