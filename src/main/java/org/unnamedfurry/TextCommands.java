@@ -5,6 +5,8 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.interactions.IntegrationType;
+import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
@@ -288,10 +290,14 @@ public class TextCommands {
             JDA bot = event.getJDA();
             bot.updateCommands()
                     .addCommands(Commands
-                            .slash("help", "выводит список доступных команд."))
+                            .slash("help", "выводит список доступных команд.")
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setContexts(InteractionContextType.ALL))
                     .addCommands(Commands
                             .slash("tenzra-embed-gen", "отправляет в чат embed-сообщение основываясь на введенном тексте и загруженных файлах")
-                            .addOption(OptionType.ATTACHMENT, "main-embed-pic", "просто загрузи заебал"))
+                            .addOption(OptionType.ATTACHMENT, "main-embed-pic", "просто загрузи заебал")
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setContexts(InteractionContextType.ALL))
                     .addCommands(Commands
                             .slash("save-embed-template", "сохраняет шаблон embed-сообщения в память бота")
                             .addOption(OptionType.STRING, "имя-шаблона", "имя шаблона", true)
@@ -304,18 +310,26 @@ public class TextCommands {
                             .addOption(OptionType.STRING, "вложенный-главный-текст", "главный текст внутри embed сообщения", false)
                             .addOption(OptionType.STRING, "вложенный-основной-текст", "что ты хочешь видеть в embed-сообщении (опационально)", false)
                             .addOption(OptionType.ATTACHMENT, "вложенный-файл-embed", "какой файл будет отправлен вместе с embed-сообщением (опционально)", false)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setContexts(InteractionContextType.ALL)
                     )
                     .addCommands(Commands
                             .slash("send-embed-template", "отправляет в чат ваше embed сообщение")
                             .addOption(OptionType.STRING, "имя-шаблона", "имя шаблона", true)
-                            .addOption(OptionType.STRING, "айди-канала", "айди канала, куда нужно отправить сообщение", false))
+                            .addOption(OptionType.STRING, "айди-канала", "айди канала, куда нужно отправить сообщение", false)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setContexts(InteractionContextType.ALL))
                     .addCommands(Commands
                             .slash("delete-embed-template", "удаляет отправленное вами embed сообщение")
                             .addOption(OptionType.STRING, "айди-сообщения", "айди сообщения", true)
-                            .addOption(OptionType.STRING, "айди-канала", "айди канала, откуда нужно удалить сообщение", false))
+                            .addOption(OptionType.STRING, "айди-канала", "айди канала, откуда нужно удалить сообщение", false)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setContexts(InteractionContextType.ALL))
                     .addCommands(Commands
                             .slash("say", "отправляет в чат ваше сообщение")
-                            .addOption(OptionType.STRING, "текст", "текст сообщения", true))
+                            .addOption(OptionType.STRING, "текст", "текст сообщения", true)
+                            .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
+                            .setContexts(InteractionContextType.ALL))
                     .queue();
             channel.sendMessage("Глобальные команды зарегестрированы успешно").queue();
         } else {

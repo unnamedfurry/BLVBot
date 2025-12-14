@@ -182,7 +182,7 @@ public class EventListener extends ListenerAdapter {
                 text = option2.getAsString();
             }
             channel.sendMessage(text).queue();
-            event.reply("Успешно.").queue();
+            event.reply("Успешно.").setEphemeral(true).queue();
         }
     }
 
