@@ -47,7 +47,7 @@ public class TenzraTicketBot {
                     .build();
             MessageEmbed embed = builder.build();
             event.getMessageChannel().sendMessageEmbeds(embed).addComponents(ActionRow.of(selectMenu)).queue();
-            event.reply("Success!\nYour selection menu id is: " + selectMenu.getCustomId() + ". Copy it and make sure your bot monitors this menu! ;)").setEphemeral(true).queue();
+            event.reply("Success!").setEphemeral(true).queue();
         } catch (Exception e) {
             logger.error("Caught an unexpected error while generating ticket embed!: {}", e.getMessage());
         }
@@ -69,8 +69,6 @@ public class TenzraTicketBot {
                             StringSelectMenu DEselectMenu = StringSelectMenu.create("tenzra-core-menu")
                                     .setPlaceholder("Категория процессора: ")
                                     .addOption("Ryzen 9 3900", "de-9-3900", "Техническая поддержка по услугам, имеющих процессор Ryzen 9 3900.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
-                                    .addOption("Ryzen 9 5950X", "de-9-5950X", "Техническая поддержка по услугам, имеющих процессор Ryzen 9 5950X.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
-                                    .addOption("Ryzen 9 7950x3D", "de-9-7950x3D", "Техническая поддержка по услугам, имеющих процессор Ryzen 9 7950x3D.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
                                     .addOption("Ryzen 9 9950X", "de-9-9950X", "Техническая поддержка по услугам, имеющих процессор Ryzen 9 9950X.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
                                     .build();
                             MessageEmbed DEembed = DEbuilder.build();
@@ -97,8 +95,6 @@ public class TenzraTicketBot {
                             StringSelectMenu RUselectMenu = StringSelectMenu.create("tenzra-core-menu")
                                     .setPlaceholder("Категория процессора: ")
                                     .addOption("Xeon E5 2690 V3", "vo-E5-2690-V3", "Техническая поддержка по услугам, имеющих процессор Xeon E5-2690 V3, находящихся в локации Воронеж.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
-                                    .addOption("Xeon E5 2690 V3", "mo-E5-2690-V3", "Техническая поддержка по услугам, имеющих процессор Xeon E5-2690 V3, находящихся в локации Москва.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
-                                    .addOption("Xeon E5 2680 V4", "mo-E5-2680-V4", "Техническая поддержка по услугам, имеющих процессор E5 2680 V4, находящихся в локации Москва.", Emoji.fromCustom(":ryzen9:", 1439205578667720704L, false))
                                     .build();
                             MessageEmbed RUembed = RUbuilder.build();
                             event.replyEmbeds(RUembed).addComponents(ActionRow.of(RUselectMenu)).setEphemeral(true).queue();

@@ -6,7 +6,6 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.*;
-import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -15,13 +14,19 @@ import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionE
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 public class EventListener extends ListenerAdapter {
+    private static final Logger log = LoggerFactory.getLogger(EventListener.class);
     TextCommands textCommands = new TextCommands();
     SlashCommands slashCommands = new SlashCommands();
     MusicBot musicBot = new MusicBot();
     EmbedBot ticketBot = new EmbedBot();
     TenzraTicketBot tenzraTicketBot = new TenzraTicketBot();
+    GameBot gameBot = new GameBot();
 
     @Override
     public void onMessageReceived(MessageReceivedEvent messageEvent){
@@ -194,6 +199,20 @@ public class EventListener extends ListenerAdapter {
                             event.reply("Не удалось отправить сообщение в этот канал.").setEphemeral(true).queue();
                         }
                 );
+            }
+        } else if (event.getName().equals("base64encode")) {
+            try {
+                gameBot.base64encode(event);
+            } catch (Exception e) {
+                log.error("Caught an unexpected exception while encoding base64 message: {}, {}", e.getMessage(), e.getStackTrace());
+                event.reply("Не удалось закодировать ваш файл. Повторите попытку или обратитесь за помощью к создателю бота `@unnamed_furry`.").setEphemeral(true).queue();
+            }
+        } else if (event.getName().equals("base64decode")) {
+            try {
+                gameBot.base64decode(event);
+            } catch (Exception e) {
+                log.error("Caught an unexpected exception while decoding base64 message: {}, {}", e.getMessage(), e.getStackTrace());
+                event.reply("Не удалось декодировать ваш файл. Повторите попытку или обратитесь за помощью к создателю бота `@unnamed_furry`.").setEphemeral(true).queue();
             }
         }
     }

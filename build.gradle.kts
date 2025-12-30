@@ -35,6 +35,7 @@ dependencies {
     implementation("dev.arbjerg:lavalink-client:3.2.0")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     implementation("com.fasterxml.jackson.core:jackson-core:2.16.1")
+    implementation("commons-io:commons-io:2.15.1")
 }
 
 tasks.test {
