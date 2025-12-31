@@ -330,6 +330,22 @@ public class TextCommands {
                             .addOption(OptionType.STRING, "текст", "текст сообщения", true)
                             .setIntegrationTypes(IntegrationType.GUILD_INSTALL, IntegrationType.USER_INSTALL)
                             .setContexts(InteractionContextType.ALL))
+                    .addCommands(Commands
+                            .slash("base64encode", "кодирует любой ваш файл в строку Base64 и отправляет обратно текстовым файлом")
+                            .addOption(OptionType.ATTACHMENT, "attachment", "желаемый-файл", true))
+                    .addCommands(Commands
+                            .slash("base64decode", "декодирует вашу строку Base64 в любой из поддерживаемых файлов")
+                            .addOption(OptionType.ATTACHMENT, "attachment", "строка", true)
+                            .addOption(OptionType.STRING, "filetype", "тип-выходного-файла", true))
+                    .addCommands(Commands
+                            .slash("binaryencode", "кодирует любой ваш файл в бинарную строку и отправляет вам обратно")
+                            .addOption(OptionType.ATTACHMENT, "attachment", "желаемый-файл", true)
+                            .addOption(OptionType.BOOLEAN, "withspaces", "наличие-пробелов-между-бинарными-блоками", true))
+                    .addCommands(Commands
+                            .slash("binarydecode", "декодирует вашу строку binary в любой из поддерживаемых файлов")
+                            .addOption(OptionType.ATTACHMENT, "attachment", "строка", true)
+                            .addOption(OptionType.STRING, "filetype", "тип-выходного-файла", true)
+                            .addOption(OptionType.BOOLEAN, "withspaces", "наличие-пробелов-между-бинарными-блоками", true))
                     .queue();
             channel.sendMessage("Глобальные команды зарегестрированы успешно").queue();
         } else {
