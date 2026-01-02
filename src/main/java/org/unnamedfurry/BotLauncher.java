@@ -157,7 +157,7 @@ public class BotLauncher extends ListenerAdapter {
             );
         });
 
-        client.on(StatsEvent.class).subscribe((event) -> {
+        /*client.on(StatsEvent.class).subscribe((event) -> {
             final LavalinkNode node = event.getNode();
 
             logger.info(
@@ -167,7 +167,7 @@ public class BotLauncher extends ListenerAdapter {
                     event.getPlayers(),
                     client.getLinks().size()
             );
-        });
+        });*/
 
         client.on(EmittedEvent.class).subscribe((event) -> {
             if (event instanceof TrackStartEvent) {

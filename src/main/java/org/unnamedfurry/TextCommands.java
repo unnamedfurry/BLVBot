@@ -336,7 +336,8 @@ public class TextCommands {
                     .addCommands(Commands
                             .slash("base64decode", "декодирует вашу строку Base64 в любой из поддерживаемых файлов")
                             .addOption(OptionType.ATTACHMENT, "attachment", "строка", true)
-                            .addOption(OptionType.STRING, "filetype", "тип-выходного-файла", true))
+                            .addOption(OptionType.STRING, "filetype", "тип-выходного-файла", true)
+                            .addOption(OptionType.BOOLEAN, "withfixed", "делает-ваше-видео-проигрываемым", true))
                     .addCommands(Commands
                             .slash("binaryencode", "кодирует любой ваш файл в бинарную строку и отправляет вам обратно")
                             .addOption(OptionType.ATTACHMENT, "attachment", "желаемый-файл", true)

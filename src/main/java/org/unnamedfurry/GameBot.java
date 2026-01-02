@@ -3,11 +3,18 @@ package org.unnamedfurry;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
+import org.bytedeco.ffmpeg.global.avcodec;
+import org.bytedeco.javacv.FFmpegFrameRecorder;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.FrameRecorder;
+import org.bytedeco.javacv.Java2DFrameConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -63,6 +70,10 @@ public class GameBot {
             return;
         }
         try {
+            if (requestingType.equals("mp4") || requestingType.equals("mov") || requestingType.equals("mkv") && Objects.requireNonNull(event.getOption("withfixed")).getAsBoolean()){
+                base64ToVideo(Files.readString(input.toPath()), event);
+                return;
+            }
             byte[] src = Base64.getDecoder().decode(Files.readString(input.toPath()));
             String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64o."+getTime()+"."+requestingType;
             File output = new File(outputName);
@@ -169,6 +180,100 @@ public class GameBot {
             log.error("Caught an unexpected error while decoding from binary: \n{}\n{}", e.getMessage(), e.getStackTrace());
         } catch (NumberFormatException e) {
             event.getHook().editOriginal("В строке используются недопустимые сивмолы (можно только 0, 1 и пробел).").queue();
+        }
+    }
+
+    public void base64ToVideo(String usersLine, SlashCommandInteractionEvent event){
+        int width = 1280;
+        int height = 720;
+        int fps = 30;
+
+        String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64o."+getTime()+".mp4";
+        String usersFormat = Objects.requireNonNull(event.getOption("filetype")).getAsString();
+        File output = new File(outputName);
+
+        FFmpegFrameRecorder recorder = null;
+        Java2DFrameConverter converter = null;
+        BufferedImage img = null;
+
+        try {
+            recorder = new FFmpegFrameRecorder(output, width, height);
+            converter = new Java2DFrameConverter();
+            recorder.setFormat(usersFormat);
+            recorder.setFrameRate(fps);
+            recorder.setVideoCodec(avcodec.AV_CODEC_ID_H264);
+            recorder.setVideoBitrate(2000000);
+            recorder.setVideoQuality(20);
+            recorder.start();
+
+            byte[] textBytes = usersLine.getBytes(StandardCharsets.UTF_8);
+            int totalBytes = textBytes.length;
+            int bytesPerFrame = width * height * 3;
+            int totalFrames = (int) Math.ceil((double) totalBytes / bytesPerFrame);
+
+            int maxFrames = fps * 10;
+            if (totalFrames > maxFrames){
+                totalFrames = maxFrames;
+            }
+
+            img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+
+            for (int frame=0; frame<totalFrames; frame++){
+                int byteIndex = frame * bytesPerFrame;
+
+                for (int y=0; y<height; y++){
+                    for (int x=0; x<width; x++){
+                        int currentByteIndex = byteIndex + (y * width + x) * 3;
+                        int r=0, g=0, b=0;
+
+                        if (currentByteIndex < totalBytes){
+                            r = textBytes[currentByteIndex] & 0xFF;
+                        }
+                        if (currentByteIndex + 1 < totalBytes){
+                            g = textBytes[currentByteIndex+1] & 0xFF;
+                        }
+                        if (currentByteIndex + 2 < totalBytes){
+                            b = textBytes[currentByteIndex+2] & 0xFF;
+                        }
+
+                        int rgb = (r << 16) | (g << 8) | b;
+                        img.setRGB(x, y, rgb);
+                    }
+                }
+                Frame videoFrame = converter.convert(img);
+                recorder.record(videoFrame);
+            }
+
+            recorder.stop();
+            recorder.release();
+
+            event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output.mp4")).queue(
+                    success -> {
+                        if (output.delete()){}
+                        else {log.error("Cannot delete file while decoding from base64 to video!!! File: /root/DiscordBot/tempFiles/{}", outputName);}
+                    }
+            );
+        } catch (Exception e) {
+            log.error("Error creative video: {}", e.getMessage());
+            try {
+                if (recorder != null){
+                    recorder.stop();
+                    recorder.release();
+                    recorder.close();
+                }
+            } catch (Exception ex) {
+                log.error("Error closing recorder: {}", ex.getMessage());
+            }
+
+            try {
+                if (converter != null){
+                    converter.close();
+                }
+            } catch (Exception ex) {
+                log.error("Error closing converter: {}", ex.getMessage());
+            }
+
+            event.getHook().editOriginal("Ошибка создания видео.").queue();
         }
     }
 }

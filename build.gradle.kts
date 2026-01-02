@@ -3,6 +3,7 @@ plugins {
     id("java")
     kotlin("jvm") version "1.9.22"
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("org.bytedeco.gradle-javacpp-platform") version "1.5.10"
 }
 
 application {
@@ -17,6 +18,7 @@ tasks.shadowJar {
 
 group = "org.unnamedfurry"
 version = "1.0-BETA"
+extra["javacppPlatform"] = "linux-x86_64"
 
 repositories {
     mavenCentral()
@@ -36,6 +38,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     implementation("com.fasterxml.jackson.core:jackson-core:2.16.1")
     implementation("commons-io:commons-io:2.15.1")
+    implementation("org.bytedeco:javacv-platform:1.5.12")
 }
 
 tasks.test {
