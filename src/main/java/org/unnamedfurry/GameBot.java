@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.Buffer;
+import java.nio.ShortBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
@@ -36,13 +38,13 @@ public class GameBot {
     public void base64encode(SlashCommandInteractionEvent event){
         event.deferReply().queue();
         Message.Attachment attachment = Objects.requireNonNull(event.getOption("attachment")).getAsAttachment();
-        String inputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64e."+getTime()+"."+attachment.getFileExtension();
+        String inputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+"."+attachment.getFileExtension();
         File input = new File(inputName);
         attachment.getProxy().downloadToFile(input).join();
         try {
             byte[] src = Files.readAllBytes(input.toPath());
             String base64encoded = Base64.getEncoder().encodeToString(src);
-            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+".txt";
+            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64e."+getTime()+".txt";
             File output = new File(outputName);
             Files.writeString(output.toPath(), base64encoded);
             event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output.txt")).queue(
@@ -60,7 +62,7 @@ public class GameBot {
     public void base64decode(SlashCommandInteractionEvent event){
         event.deferReply().queue();
         Message.Attachment attachment = Objects.requireNonNull(event.getOption("attachment")).getAsAttachment();
-        String inputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+".txt";
+        String inputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64e."+getTime()+".txt";
         File input = new File(inputName);
         attachment.getProxy().downloadToFile(input).join();
         String requestingType = Objects.requireNonNull(event.getOption("filetype")).getAsString();
@@ -72,6 +74,13 @@ public class GameBot {
         try {
             if (requestingType.equals("mp4") || requestingType.equals("mov") || requestingType.equals("mkv") && Objects.requireNonNull(event.getOption("withfixed")).getAsBoolean()){
                 base64ToVideo(Files.readString(input.toPath()), event);
+                if (input.delete()) {}
+                else {log.error("Cannot delete file while decoding from base64 to video!!!");}
+                return;
+            } else if (requestingType.equals("wav") || requestingType.equals("mp3") || requestingType.equals("m4a") || requestingType.equals("aac") && Objects.requireNonNull(event.getOption("withfixed")).getAsBoolean()) {
+                base64ToAudio(Files.readString(input.toPath()), event);
+                if (input.delete()) {}
+                else {log.error("Cannot delete file while decoding from base64 to audio!!!");}
                 return;
             }
             byte[] src = Base64.getDecoder().decode(Files.readString(input.toPath()));
@@ -93,7 +102,7 @@ public class GameBot {
     public void binaryEncode(SlashCommandInteractionEvent event){
         event.deferReply().queue();
         Message.Attachment attachment = Objects.requireNonNull(event.getOption("attachment")).getAsAttachment();
-        String inputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-binE."+getTime()+"."+attachment.getFileExtension();
+        String inputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-binD."+getTime()+"."+attachment.getFileExtension();
         File input = new File(inputName);
         attachment.getProxy().downloadToFile(input).join();
         try {
@@ -111,7 +120,7 @@ public class GameBot {
                 }
             }
             String bytes = sb.toString().trim();
-            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-binD."+getTime()+".txt";
+            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-binE."+getTime()+".txt";
             File output = new File(outputName);
             Files.writeString(output.toPath(), bytes);
             event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output.txt")).queue(
@@ -129,7 +138,7 @@ public class GameBot {
     public void binaryDecode(SlashCommandInteractionEvent event) {
         event.deferReply().queue();
         Message.Attachment attachment = Objects.requireNonNull(event.getOption("attachment")).getAsAttachment();
-        String inputName = "/root/DiscordBot/tempFiles/" + event.getUser().getId() + "-binD." + getTime() + "." + attachment.getFileExtension();
+        String inputName = "/root/DiscordBot/tempFiles/" + event.getUser().getId() + "-binE." + getTime() + "." + attachment.getFileExtension();
         File input = new File(inputName);
         attachment.getProxy().downloadToFile(input).join();
         try {
@@ -164,7 +173,7 @@ public class GameBot {
                     result[i] = (byte) Integer.parseInt(byteStr, 2);
                 }
             }
-            String outputName = "/root/DiscordBot/tempFiles/" + event.getUser().getId() + "-binE." + getTime() + "." + requestingType;
+            String outputName = "/root/DiscordBot/tempFiles/" + event.getUser().getId() + "-binD." + getTime() + "." + requestingType;
             File output = new File(outputName);
             Files.write(output.toPath(), result);
             event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output." + requestingType)).queue(
@@ -188,8 +197,8 @@ public class GameBot {
         int height = 720;
         int fps = 30;
 
-        String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64o."+getTime()+".mp4";
         String usersFormat = Objects.requireNonNull(event.getOption("filetype")).getAsString();
+        String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+"."+usersFormat;
         File output = new File(outputName);
 
         FFmpegFrameRecorder recorder = null;
@@ -247,7 +256,7 @@ public class GameBot {
             recorder.stop();
             recorder.release();
 
-            event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output.mp4")).queue(
+            event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output."+usersFormat)).queue(
                     success -> {
                         if (output.delete()){}
                         else {log.error("Cannot delete file while decoding from base64 to video!!! File: /root/DiscordBot/tempFiles/{}", outputName);}
@@ -262,7 +271,7 @@ public class GameBot {
                     recorder.close();
                 }
             } catch (Exception ex) {
-                log.error("Error closing recorder: {}", ex.getMessage());
+                log.error("Error closing recorder in video: {}", ex.getMessage());
             }
 
             try {
@@ -270,10 +279,82 @@ public class GameBot {
                     converter.close();
                 }
             } catch (Exception ex) {
-                log.error("Error closing converter: {}", ex.getMessage());
+                log.error("Error closing converter in video: {}", ex.getMessage());
             }
 
             event.getHook().editOriginal("Ошибка создания видео.").queue();
+        }
+    }
+
+    public void base64ToAudio(String usersLine, SlashCommandInteractionEvent event){
+        int sampleRate = 44100;
+        int channels = 1;
+
+        String usersFormat = Objects.requireNonNull(event.getOption("filetype")).getAsString();
+        String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+"."+usersFormat;
+        File output = new File(outputName);
+        FFmpegFrameRecorder recorder = null;
+
+        try {
+            recorder = new FFmpegFrameRecorder(output, channels);
+            recorder.setFormat(usersFormat);
+            recorder.setSampleRate(sampleRate);
+            recorder.setAudioChannels(channels);
+            switch (usersFormat){
+                case "wav":
+                    recorder.setAudioCodec(avcodec.AV_CODEC_ID_PCM_S16LE);
+                    break;
+                case "mp3":
+                    recorder.setAudioCodec(avcodec.AV_CODEC_ID_MP3);
+                    break;
+                case "m4a":
+                    recorder.setFormat("ipod");
+                    recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+                    break;
+                case "aac":
+                    recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+                    break;
+            }
+
+            recorder.start();
+
+            byte[] textBytes = usersLine.getBytes(StandardCharsets.UTF_8);
+            short[] samples = new short[textBytes.length];
+            for (int i=0; i<textBytes.length; i++){
+                int unsigned = textBytes[i] & 0xFF;
+                double normalized = (unsigned - 128) / 128.0;
+                samples[i] = (short) (normalized * Short.MAX_VALUE);
+            }
+
+            Frame audioFrame = new Frame();
+            audioFrame.sampleRate = sampleRate;
+            audioFrame.audioChannels = channels;
+            audioFrame.samples = new Buffer[]{ShortBuffer.wrap(samples)};
+
+            recorder.record(audioFrame);
+
+            recorder.stop();
+            recorder.release();
+            recorder.close();
+            audioFrame.close();
+
+            event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output."+usersFormat)).queue(
+                    success -> {
+                        if (output.delete()){}
+                        else {log.error("Cannot delete file while decoding from base64 to video!!! File: /root/DiscordBot/tempFiles/{}", outputName);}
+                    }
+            );
+        } catch (Exception e) {
+            log.error("Error creating audio: {}", e.getMessage());
+            try {
+                if (recorder != null){
+                    recorder.stop();
+                    recorder.release();
+                    recorder.close();
+                }
+            } catch (Exception ex) {
+                log.error("Error closing recorder in audio: {}", ex.getMessage());
+            }
         }
     }
 }
