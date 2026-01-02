@@ -42,7 +42,7 @@ public class GameBot {
         try {
             byte[] src = Files.readAllBytes(input.toPath());
             String base64encoded = Base64.getEncoder().encodeToString(src);
-            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64o."+getTime()+".txt";
+            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+".txt";
             File output = new File(outputName);
             Files.writeString(output.toPath(), base64encoded);
             event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output.txt")).queue(
@@ -75,7 +75,7 @@ public class GameBot {
                 return;
             }
             byte[] src = Base64.getDecoder().decode(Files.readString(input.toPath()));
-            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64o."+getTime()+"."+requestingType;
+            String outputName = "/root/DiscordBot/tempFiles/"+event.getUser().getId()+"-b64d."+getTime()+"."+requestingType;
             File output = new File(outputName);
             Files.write(output.toPath(), src);
             event.getHook().editOriginal("Success!").setAttachments(FileUpload.fromData(output, "output."+requestingType)).queue(
