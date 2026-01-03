@@ -271,6 +271,160 @@ public class TextCommands {
         }
     }
 
+    public void enableLogger(Message message, MessageChannel channel, MessageReceivedEvent event, String userChannelId, String messageChannelId, String permissionChannelId, String channelChannelId, String guildChannelId, String roleChannelId){
+        try {
+            if (TextVerification.allowedExecAdminCommands(message, channel)){
+                Path jarDir = Paths.get(
+                        BotLauncher.class.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI()
+                ).getParent();
+                Path path = jarDir.resolve("loggingConfig.json");
+                //Path path = Path.of("loggingConfig.json");
+
+                String content = Files.readString(path);
+                JSONObject json = new JSONObject(content);
+                String guildId = event.getGuild().getId();
+
+                if (json.has(guildId)){
+                    channel.sendMessage("Логгер уже создан для данного сервера.").queue();
+                    return;
+                }
+
+                JSONArray array = new JSONArray();
+                int i = 0;
+                array.put(i,"true");
+                array.put(i++, userChannelId);
+                array.put(i++, messageChannelId);
+                array.put(i++, permissionChannelId);
+                array.put(i++, channelChannelId);
+                array.put(i++, guildChannelId);
+                array.put(i++, roleChannelId);
+
+                json.put(guildId, array);
+                FileWriter writer = new FileWriter(path.toFile());
+                json.write(writer);
+                writer.close();
+                channel.sendMessage("Логгер успешно создан.").queue();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to create logger: \n{}\n{}", e.getMessage(), e.getStackTrace());
+        }
+    }
+
+    public void enableLogger(Message message, MessageChannel channel, MessageReceivedEvent event){
+        try {
+            if (TextVerification.allowedExecAdminCommands(message, channel)){
+                Path jarDir = Paths.get(
+                        BotLauncher.class.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI()
+                ).getParent();
+                Path path = jarDir.resolve("loggingConfig.json");
+                //Path path = Path.of("loggingConfig.json");
+
+                String content = Files.readString(path);
+                JSONObject json = new JSONObject(content);
+                String guildId = event.getGuild().getId();
+
+                if (!json.has(guildId)){
+                    channel.sendMessage("Логгер еще не создан для данного сервера.").queue();
+                    return;
+                }
+
+                JSONArray array = json.getJSONArray(guildId);
+                array.put(0,"true");
+
+                json.put(guildId, array);
+                FileWriter writer = new FileWriter(path.toFile());
+                json.write(writer);
+                writer.close();
+                channel.sendMessage("Логгер успешно включен.").queue();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to enable logger: \n{}\n{}", e.getMessage(), e.getStackTrace());
+        }
+    }
+
+    public void disableLogger(Message message, MessageChannel channel, MessageReceivedEvent event){
+        try {
+            if (TextVerification.allowedExecAdminCommands(message, channel)){
+                Path jarDir = Paths.get(
+                        BotLauncher.class.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI()
+                ).getParent();
+                Path path = jarDir.resolve("loggingConfig.json");
+                //Path path = Path.of("loggingConfig.json");
+
+                String content = Files.readString(path);
+                JSONObject json = new JSONObject(content);
+                String guildId = event.getGuild().getId();
+
+                if (!json.has(guildId)){
+                    channel.sendMessage("Логгер еще не создан для данного сервера.").queue();
+                    return;
+                }
+
+                JSONArray array = json.getJSONArray(guildId);
+                array.put("false");
+
+                json.put(guildId, array);
+                FileWriter writer = new FileWriter(path.toFile());
+                json.write(writer);
+                writer.close();
+                channel.sendMessage("Логгер успешно выключен.").queue();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to disable logger: \n{}\n{}", e.getMessage(), e.getStackTrace());
+        }
+    }
+
+    public void updateLogger(Message message, MessageChannel channel, MessageReceivedEvent event, String userChannelId, String messageChannelId, String permissionChannelId, String channelChannelId, String guildChannelId, String roleChannelId){
+        try {
+            if (TextVerification.allowedExecAdminCommands(message, channel)){
+                Path jarDir = Paths.get(
+                        BotLauncher.class.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI()
+                ).getParent();
+                Path path = jarDir.resolve("loggingConfig.json");
+                //Path path = Path.of("loggingConfig.json");
+
+                String content = Files.readString(path);
+                JSONObject json = new JSONObject(content);
+                String guildId = event.getGuild().getId();
+
+                if (!json.has(guildId)){
+                    channel.sendMessage("Логгер еще не создан для данного сервера.").queue();
+                    return;
+                }
+
+                JSONArray array = new JSONArray();
+                int i = 0;
+                array.put(i,"true");
+                array.put(i++, userChannelId);
+                array.put(i++, messageChannelId);
+                array.put(i++, permissionChannelId);
+                array.put(i++, channelChannelId);
+                array.put(i++, guildChannelId);
+                array.put(i++, roleChannelId);
+
+                json.put(guildId, array);
+                FileWriter writer = new FileWriter(path.toFile());
+                json.write(writer);
+                writer.close();
+                channel.sendMessage("Логгер успешно создан.").queue();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to edit logger: \n{}\n{}", e.getMessage(), e.getStackTrace());
+        }
+    }
+
     public void clearCommands(MessageChannel channel, MessageReceivedEvent event){
         if (event.getAuthor().getId().equals("897054945889644564")){
             JDA bot = event.getJDA();

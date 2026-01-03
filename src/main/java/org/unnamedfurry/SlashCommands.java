@@ -41,7 +41,7 @@ public class SlashCommands {
                             .getLocation()
                             .toURI()
             ).getParent();
-            Path filePath = jarDir.resolve("help-menu.txt");
+            Path filePath = jarDir.resolve("short-menu.txt");
             //Path filePath = Path.of("short-menu.txt");
 
             String aboutText = Files.readString(filePath);

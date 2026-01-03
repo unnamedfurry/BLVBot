@@ -1,21 +1,56 @@
 package org.unnamedfurry;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.events.channel.ChannelCreateEvent;
+import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent;
+import net.dv8tion.jda.api.events.channel.update.*;
+import net.dv8tion.jda.api.events.guild.GuildBanEvent;
+import net.dv8tion.jda.api.events.guild.GuildUnbanEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
+import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateAvatarEvent;
+import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateNicknameEvent;
+import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateTimeOutEvent;
+import net.dv8tion.jda.api.events.guild.override.PermissionOverrideCreateEvent;
+import net.dv8tion.jda.api.events.guild.override.PermissionOverrideDeleteEvent;
+import net.dv8tion.jda.api.events.guild.override.PermissionOverrideUpdateEvent;
+import net.dv8tion.jda.api.events.guild.update.*;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageBulkDeleteEvent;
+import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.events.message.MessageUpdateEvent;
+import net.dv8tion.jda.api.events.role.RoleCreateEvent;
+import net.dv8tion.jda.api.events.role.RoleDeleteEvent;
+import net.dv8tion.jda.api.events.role.update.*;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.utils.ImageProxy;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class EventListener extends ListenerAdapter {
     private static final Logger log = LoggerFactory.getLogger(EventListener.class);
@@ -25,6 +60,12 @@ public class EventListener extends ListenerAdapter {
     EmbedBot ticketBot = new EmbedBot();
     TenzraTicketBot tenzraTicketBot = new TenzraTicketBot();
     GameBot gameBot = new GameBot();
+    LinkedHashMap<String, String> messageHistory = new LinkedHashMap<String, String>(1000, 0.5f, false){
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+            return size() > 1000;
+        }
+    };
 
     @Override
     public void onMessageReceived(MessageReceivedEvent messageEvent){
@@ -58,10 +99,28 @@ public class EventListener extends ListenerAdapter {
             textCommands.kickCommand(channel, message, content);
         } else if (content.startsWith("!timeout")) {
             textCommands.timeoutCommand(channel, message, content);
-        } else if (content.startsWith("?clearCommands")) {
+        } else if (content.equals("?clearCommands")) {
             textCommands.clearCommands(channel, messageEvent);
-        } else if (content.startsWith("?registerCommands")) {
+        } else if (content.equals("?registerCommands")) {
             textCommands.registerCommands(channel, messageEvent);
+        } else if (content.startsWith("?enableLogger")) {
+            String[] args = content.split(" ");
+            if (args.length == 7) {
+                textCommands.enableLogger(message, channel, messageEvent, args[1], args[2], args[3], args[4], args[5], args[6]);
+            } else if (args.length == 1) {
+                textCommands.enableLogger(message, channel, messageEvent);
+            } else {
+                channel.sendMessage("Неправильное использование команды. Правильно: `?enableLogger userChannelId messageChannelId permissionChannelId channelChannelId guildChannelId roleChannelId`.").queue();
+            }
+        } else if (content.startsWith("?disableLogger")) {
+            textCommands.disableLogger(message, channel, messageEvent);
+        } else if (content.startsWith("?updateLogger")) {
+            String[] args = content.split(" ");
+            if (args.length == 7) {
+                textCommands.updateLogger(message, channel, messageEvent, args[1], args[2], args[3], args[4], args[5], args[6]);
+            } else {
+                channel.sendMessage("Неправильное использование команды. Правильно: `?editLogger userChannelId messageChannelId permissionChannelId channelChannelId guildChannelId roleChannelId`.").queue();
+            }
         } else if (content.startsWith("!play")) {
             musicBot.play(message);
         } else if (content.startsWith("!stop")) {
@@ -76,6 +135,10 @@ public class EventListener extends ListenerAdapter {
             musicBot.queue(message);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {
             textCommands.HelpCommand(channel, message);
+        } else {
+            String key = messageEvent.getGuild().getId() + "-" + message.getId();
+            String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
+            messageHistory.put(key, value);
         }
     }
 
@@ -163,21 +226,8 @@ public class EventListener extends ListenerAdapter {
             }
             ticketBot.sendEmbed(event, channel, templateName, channelId, event.getUser());
         } else if (event.getName().equals("delete-embed-template")){
-            OptionMapping option1 = event.getInteraction().getOption("айди-канала");
-            String channelId;
-            if (option1 == null){
-                channelId = "";
-            } else {
-                channelId = option1.getAsString();
-            }
-            OptionMapping option2 = event.getInteraction().getOption("айди-сообщения");
-            String messageId;
-            if (option2 == null){
-                messageId = "";
-            } else {
-                messageId = option2.getAsString();
-            }
-            ticketBot.deleteSentEmbed(event, channelId, messageId);
+            String templateName = Objects.requireNonNull(event.getInteraction().getOption("имя-шаблона")).getAsString();
+            ticketBot.deleteSentEmbed(event, templateName);
         } else if (event.getName().equals("say")) {
             OptionMapping option2 = event.getInteraction().getOption("текст");
             String text;
@@ -299,5 +349,776 @@ public class EventListener extends ListenerAdapter {
         } else if (event.getInteraction().getButton().getCustomId().equals("deny")) {
             event.getMessageChannel().deleteMessageById(event.getMessageChannel().getLatestMessageId()).queue();
         }
+    }
+
+    //Logger section
+
+    //User section
+
+    @Override
+    public void onGuildBan(GuildBanEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Участник <@" + event.getUser().getId() + "> был забанен.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging member's banning: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUnban(GuildUnbanEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Участник <@" + event.getUser().getId() + "> был разбанен.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging member's unbanning: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Участник <@" + event.getMember().getId() + "> изменил ник. \nСтарый ник - `" + event.getOldNickname() + "`, новый ник - `" + event.getNewNickname() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging member's nickname changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberUpdateAvatar(GuildMemberUpdateAvatarEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                ImageProxy oldAvatar = event.getOldAvatar();
+                ImageProxy newAvatar = event.getNewAvatar();
+                FileUpload oldAvatar1 = oldAvatar.downloadAsFileUpload("oldAvatar.png");
+                FileUpload newAvatar1 = newAvatar.downloadAsFileUpload("newAvatar.png");
+                String message = "Участник <@" + event.getMember().getId() + "> изменил аватар. \nСтарый аватар - `oldAvatar.png`, новый аватар - `newAvatar.png`.";
+                channel.sendMessage(message).addFiles(oldAvatar1, newAvatar1).queue();
+                oldAvatar1.close();
+                newAvatar1.close();
+            } catch (Exception e) {
+                log.error("Error logging member's avatar changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberJoin(GuildMemberJoinEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Участник <@" + event.getMember().getId() + "> зашел на сервер.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging new member's joining: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberRemove(GuildMemberRemoveEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Участник <@" + event.getMember().getId() + "> вышел из сервера.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging old member's leaving: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberRoleAdd(GuildMemberRoleAddEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                List<Role> roles = event.getRoles();
+                List<String> roleIds = new ArrayList<>();
+                for (Role r : roles){
+                    roleIds.add("<@&" + r.getId() + ">");
+                }
+                String rolesStr = String.join(", ", roleIds);
+                String message = "Участник <@" + event.getMember().getId() + "> получил новые роли. \nТекущие роли: " + rolesStr + ".";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging member's new role adding: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberRoleRemove(GuildMemberRoleRemoveEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                List<Role> roles = event.getRoles();
+                List<String> roleIds = new ArrayList<>();
+                for (Role r : roles){
+                    roleIds.add("<@&" + r.getId() + ">");
+                }
+                String rolesStr = String.join(", ", roleIds);
+                String message = "Участник <@" + event.getMember().getId() + "> потерял старые роли. \nТекущие роли: " + rolesStr + ".";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging member's old role removing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildMemberUpdateTimeOut(GuildMemberUpdateTimeOutEvent event) {
+        String[] args = isEnabled(1, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Участник <@" + event.getMember().getId() + "> был отправлен в тайм-аут. \nСтарое время тайм-аута: `" + event.getOldTimeOutEnd().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`, новое время тайм-аута: `" + event.getNewTimeOutEnd().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging member's timeout changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    //Message section
+
+    @Override
+    public void onMessageUpdate(MessageUpdateEvent event) {
+        String[] args = isEnabled(2, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String key = event.getGuild().getId() + "-" + event.getMessage().getId();
+                String[] oldMessage = messageHistory.get(key).split("ʩ");
+                String newMessage = event.getMessage().getContentRaw();
+                if (oldMessage[0] != null && oldMessage[1] != null){
+                    String message = "Участник <@" + oldMessage[1] + "> изменил сообщение. \nСтарое сообщение - `" + oldMessage[0] + "`, новое сообщение - `" + newMessage + "`.";
+                    channel.sendMessage(message).queue();
+                }
+            } catch (Exception e) {
+                log.error("Error logging message updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onMessageDelete(MessageDeleteEvent event) {
+        String[] args = isEnabled(2, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String key = event.getGuild().getId() + "-" + event.getMessageId();
+                String[] oldMessage = messageHistory.get(key).split("ʩ");
+                if (oldMessage[0] != null && oldMessage[1] != null){
+                    String message = "Участник <@" + oldMessage[1] + "> удалил сообщение. \nСтарое сообщение - `" + oldMessage[0] + "`.";
+                    channel.sendMessage(message).queue();
+                }
+            } catch (Exception e) {
+                log.error("Error logging message deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onMessageBulkDelete(MessageBulkDeleteEvent event) {
+        String[] args = isEnabled(2, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                List<String> messageIds = event.getMessageIds();
+                String guildId = event.getGuild().getId();
+                for (String id : messageIds){
+                    String key = guildId + "-" + id;
+                    String[] oldMessage = messageHistory.get(key).split("ʩ");
+                    if (oldMessage[0] != null && oldMessage[1] != null){
+                        String message = "Участник <@" + oldMessage[1] + "> удалил сообщение. \nСтарое сообщение - `" + oldMessage[0] + "`.";
+                        channel.sendMessage(message).queue();
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error logging message bulk-deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    //Permission section
+
+    private String formatPermissions(EnumSet<Permission> set) {
+        if (set.isEmpty())
+            return "пусто";
+
+        return set.stream()
+                .map(Permission::getName)
+                .collect(Collectors.joining(", "));
+    }
+
+    @Override
+    public void onPermissionOverrideCreate(PermissionOverrideCreateEvent event) {
+        String[] args = isEnabled(3, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                EnumSet<Permission> newAllowSet = event.getPermissionOverride().getAllowed();
+                EnumSet<Permission> newInheritsSet = event.getPermissionOverride().getInherit();
+                EnumSet<Permission> newDenySet = event.getPermissionOverride().getDenied();
+                String newPermissions = "+ Разрешено: " + formatPermissions(newAllowSet) + "\n" +
+                                "- Запрещено: " + formatPermissions(newDenySet) + "\n" +
+                                "| Наследуется: " + formatPermissions(newInheritsSet);
+                String message = "Участник <@" + event.getMember().getId() + "> изменил разрешения для `" + event.getPermissionHolder().getId() + "`. \nНовые разрешения: \n" + newPermissions + "\n.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging permission override creating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onPermissionOverrideUpdate(PermissionOverrideUpdateEvent event) {
+        String[] args = isEnabled(3, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                EnumSet<Permission> oldAllowSet = event.getOldAllow();
+                EnumSet<Permission> oldInheritsSet = event.getOldInherited();
+                EnumSet<Permission> oldDenySet = event.getOldDeny();
+                String oldPermissions = "+ Разрешено: " + formatPermissions(oldAllowSet) + "\n" +
+                        "- Запрещено: " + formatPermissions(oldDenySet) + "\n" +
+                        "| Наследуется: " + formatPermissions(oldInheritsSet);
+                EnumSet<Permission> newAllowSet = event.getPermissionOverride().getAllowed();
+                EnumSet<Permission> newInheritsSet = event.getPermissionOverride().getInherit();
+                EnumSet<Permission> newDenySet = event.getPermissionOverride().getDenied();
+                String newPermissions = "+ Разрешено: " + formatPermissions(newAllowSet) + "\n" +
+                        "- Запрещено: " + formatPermissions(newDenySet) + "\n" +
+                        "| Наследуется: " + formatPermissions(newInheritsSet);
+                String message = "Участник <@" + event.getMember().getId() + "> изменил разрешения для `" + event.getPermissionHolder().getId() + "`. \nСтарые разрешения: \n" + oldPermissions + "\n, новые разрешения: \n" + newPermissions + "\n.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging permission override updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onPermissionOverrideDelete(PermissionOverrideDeleteEvent event) {
+        String[] args = isEnabled(3, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                EnumSet<Permission> oldAllowSet = event.getPermissionOverride().getAllowed();
+                EnumSet<Permission> oldInheritsSet = event.getPermissionOverride().getInherit();
+                EnumSet<Permission> oldDenySet = event.getPermissionOverride().getDenied();
+                String oldPermissions = "+ Разрешено: " + formatPermissions(oldAllowSet) + "\n" +
+                        "- Запрещено: " + formatPermissions(oldDenySet) + "\n" +
+                        "| Наследуется: " + formatPermissions(oldInheritsSet);
+                String message = "Участник <@" + event.getMember().getId() + "> удалил разрешения для `" + event.getPermissionHolder().getId() + "`. \nСтарые разрешения: \n" + oldPermissions + "\n.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging permission override deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    //Channel section
+
+    @Override
+    public void onChannelCreate(ChannelCreateEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Создан новый канал. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging new channel creating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelDelete(ChannelDeleteEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Удален старый канал. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging new channel deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelUpdateBitrate(ChannelUpdateBitrateEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Изменен битрейт канала. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старый битрейт - `" + event.getOldValue() + "`, новый битрейт - `" + event.getNewValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging channel bitrate changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelUpdateName(ChannelUpdateNameEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Изменено название канала. \nСтарое название - `" + event.getOldValue() + "`, новое название - `" + event.getNewValue() + "`, айди - `" + event.getChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging channel name editing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelUpdateRegion(ChannelUpdateRegionEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Изменен регион канала. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старый регион - `" + event.getOldValue() + "`, новый регион - `" + event.getOldValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging channel region editing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelUpdateSlowmode(ChannelUpdateSlowmodeEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Изменен slowmode канала. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старый режим - `" + event.getOldValue() + ", новый режим - `" + event.getNewValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging channel slowmode updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelUpdateVoiceStatus(ChannelUpdateVoiceStatusEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Изменен статус канала. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старое значение - `" + event.getOldValue() + "`, новое значение - `" + event.getNewValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging channel status updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onChannelUpdateType(ChannelUpdateTypeEvent event) {
+        String[] args = isEnabled(4, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Изменен тип канала. \nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старое значение - `" + event.getOldValue() + "`, новое значение - `" + event.getNewValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging channel type updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    //Guild section
+
+    @Override
+    public void onGuildUpdateAfkChannel(GuildUpdateAfkChannelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен AFK канал. \nСтарое название - `" + event.getOldAfkChannel().getName() + "`, старый айди - `" + event.getOldAfkChannel().getId() + "`, новое название - `" + event.getNewAfkChannel().getName() + "`, новый айди - `" + event.getNewAfkChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging AFK channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateSystemChannel(GuildUpdateSystemChannelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен системный канал. \nСтарое название - `" + event.getOldSystemChannel().getName() + "`, старый айди - `" + event.getOldSystemChannel().getId() + "`, новое название - `" + event.getNewSystemChannel().getName() + "`, новый айди - `" + event.getNewSystemChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging system channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateRulesChannel(GuildUpdateRulesChannelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен правовой канал. \nСтарое название - `" + event.getOldRulesChannel().getName() + "`, старый айди - `" + event.getOldRulesChannel().getId() + "`, новое название - `" + event.getNewRulesChannel().getName() + "`, новый айди - `" + event.getNewRulesChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging rules channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateSafetyAlertsChannel(GuildUpdateSafetyAlertsChannelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен канал оповещений безопасности. \nСтарое название - `" + event.getOldSafetyAlertsChannel().getName() + "`, старый айди - `" + event.getOldSafetyAlertsChannel().getId() + "`, новое название - `" + event.getNewSafetyAlertsChannel().getName() + "`, новый айди - `" + event.getNewSafetyAlertsChannel().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging safety alerts channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateAfkTimeout(GuildUpdateAfkTimeoutEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен таймаут афк. \nСтарое значение - `" + event.getOldAfkTimeout() + "`, новое значение - `" + event.getNewAfkTimeout() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging AFK timeout updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateIcon(GuildUpdateIconEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                ImageProxy oldAvatar = event.getOldIcon();
+                ImageProxy newAvatar = event.getNewIcon();
+                FileUpload oldAvatar1 = oldAvatar.downloadAsFileUpload("oldIcon.png");
+                FileUpload newAvatar1 = newAvatar.downloadAsFileUpload("newIcon.png");
+                String message = "Изменена иконка сервера. \nСтарый аватар - `oldIcon.png`, новый аватар - `newIcon.png`.";
+                channel.sendMessage(message).addFiles(oldAvatar1, newAvatar1).queue();
+                oldAvatar1.close();
+                newAvatar1.close();
+            } catch (Exception e) {
+                log.error("Error logging server's icon changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateMFALevel(GuildUpdateMFALevelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен уровень MFA. \nСтарый уровень - `" + event.getOldMFALevel() + "`, новый уровень - `" + event.getNewMFALevel() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging MFA level updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateName(GuildUpdateNameEvent event){
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлено название сервера. \nСтарое название - `" + event.getOldName() + "`, новое название - `" + event.getNewName() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging server's name updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateNotificationLevel(GuildUpdateNotificationLevelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен уровень уведомлений. \nСтарый уровень - `" + event.getOldNotificationLevel() + "`, новый уровень - `" + event.getNewNotificationLevel() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging notification level updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateOwner(GuildUpdateOwnerEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен владелец сервера. \nСтарый владелец - `<@" + event.getOldOwnerId() + ">`, новый владелец - `<@" + event.getNewOwnerId() + ">`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging server's owner updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateVerificationLevel(GuildUpdateVerificationLevelEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен уровень верификации. \nСтарый уровень - `" + event.getOldVerificationLevel() + "`, новый уровень - `" + event.getNewVerificationLevel() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging verification level updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateLocale(GuildUpdateLocaleEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен язык. \nСтарый язык - `" + event.getOldValue() + "`, новый язык - `" + event.getNewValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging server's locale updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateBanner(GuildUpdateBannerEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                ImageProxy oldAvatar = event.getOldBanner();
+                ImageProxy newAvatar = event.getNewBanner();
+                FileUpload oldAvatar1 = oldAvatar.downloadAsFileUpload("oldBanner.png");
+                FileUpload newAvatar1 = newAvatar.downloadAsFileUpload("newBanner.png");
+                String message = "Изменен баннер сервера. \nСтарый аватар - `oldBanner.png`, новый аватар - `newBanner.png`.";
+                channel.sendMessage(message).addFiles(oldAvatar1, newAvatar1).queue();
+                oldAvatar1.close();
+                newAvatar1.close();
+            } catch (Exception e) {
+                log.error("Error logging server's banner changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onGuildUpdateDescription(GuildUpdateDescriptionEvent event) {
+        String[] args = isEnabled(5, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлено описание сервера. \nСтарое описание - `" + event.getOldDescription() + "`, новое описание - `" + event.getNewDescription() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging server's description updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    //Roles section
+
+    @Override
+    public void onRoleCreate(RoleCreateEvent event) {
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Создана новая роль. \nНовое название - `" + event.getRole().getName() + "`, новый айди - `" + event.getRole().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging new role creating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onRoleDelete(RoleDeleteEvent event) {
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Удалена новая роль. \nСтарое название - `" + event.getRole().getName() + "`, старый айди - `" + event.getRole().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging old role deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onRoleUpdateColor(RoleUpdateColorEvent event) {
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен цвет роли. \nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старый цвет - `" + event.getOldColor() + "`, новый цвет - `" + event.getNewColor() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging old role color updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onRoleUpdateIcon(RoleUpdateIconEvent event) {
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                ImageProxy oldAvatar = event.getOldIcon().getIcon();
+                ImageProxy newAvatar = event.getNewIcon().getIcon();
+                FileUpload oldAvatar1 = oldAvatar.downloadAsFileUpload("oldIcon.png");
+                FileUpload newAvatar1 = newAvatar.downloadAsFileUpload("newIcon.png");
+                String message = "Изменена иконка роли. \nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старая иконка - `oldIcon.png`, новая иконка - `newIcon.png`.";
+                channel.sendMessage(message).addFiles(oldAvatar1, newAvatar1).queue();
+                oldAvatar1.close();
+                newAvatar1.close();
+            } catch (Exception e) {
+                log.error("Error logging roles's icon changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onRoleUpdateMentionable(RoleUpdateMentionableEvent event) {
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлена упоминаемость роли. \nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старое значение - `" + event.getOldValue() + "`, новое значение - `" + event.getNewValue() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging old role mentionable updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    @Override
+    public void onRoleUpdateName(RoleUpdateNameEvent event) {
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                String message = "Обновлен цвет роли. \nСтарое название - `" + event.getOldName() + "`, новое название - `" + event.getNewName() + "`, айди - `" + event.getRole().getId() + "`.";
+                channel.sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("Error logging old role name updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
+
+    //Checking section
+
+    public String[] isEnabled(int index, String guildId){
+        try {
+            Path jarDir = Paths.get(
+                    BotLauncher.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            ).getParent();
+            Path path = jarDir.resolve("loggingConfig.json");
+            //Path path = Path.of("loggingConfig.json");
+
+            String content = Files.readString(path);
+            JSONObject json = new JSONObject(content);
+            JSONArray array = json.getJSONArray(guildId);
+            String[] args = new String[2];
+
+            switch (index){
+                case 1:
+                    if (array.getBoolean(0)){
+                        args[0] = "true";
+                        args[1] = array.getString(1);
+                        return args;
+                    }
+                    break;
+                case 2:
+                    if (array.getBoolean(0)){
+                        args[0] = "true";
+                        args[1] = array.getString(2);
+                        return args;
+                    }
+                    break;
+                case 3:
+                    if (array.getBoolean(0)){
+                        args[0] = "true";
+                        args[1] = array.getString(3);
+                        return args;
+                    }
+                    break;
+                case 4:
+                    if (array.getBoolean(0)){
+                        args[0] = "true";
+                        args[1] = array.getString(4);
+                        return args;
+                    }
+                    break;
+                case 5:
+                    if (array.getBoolean(0)){
+                        args[0] = "true";
+                        args[1] = array.getString(5);
+                        return args;
+                    }
+                    break;
+                case 6:
+                    if (array.getBoolean(0)){
+                        args[0] = "true";
+                        args[1] = array.getString(6);
+                        return args;
+                    }
+                    break;
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to disable logger: \n{}\n{}", e.getMessage(), e.getStackTrace());
+        }
+        return null;
     }
 }

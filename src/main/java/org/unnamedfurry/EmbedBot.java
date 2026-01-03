@@ -108,7 +108,7 @@ public class EmbedBot {
             FileWriter writer = new FileWriter(path.toFile());
             json.write(writer);
             writer.close();
-            event.reply("Файл успешно сохранен.").setEphemeral(true).queue();
+            event.reply("Шаблон успешно сохранен.").setEphemeral(true).queue();
         } catch (Exception e) {
             log.error("Caught an unexpected error while saving embed: \n {} \n {}", e.getMessage(), e.getStackTrace());
         }
@@ -177,30 +177,34 @@ public class EmbedBot {
         }
     }
 
-    public void deleteSentEmbed(SlashCommandInteractionEvent event, String channelId, String messageId){
+    public void deleteSentEmbed(SlashCommandInteractionEvent event, String templateName){
         try{
-            var channel = !channelId.isBlank()
-                    ? bot.getTextChannel(channelId)
-                    : event.getMessageChannel();
+            templateName = event.getUser().getId()+templateName;
+            Path jarDir = Paths.get(
+                    BotLauncher.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            ).getParent();
+            Path path = jarDir.resolve("embedTemplates.json");
+            //Path path = Path.of("embedTemplates.json");
 
-            if (channel == null){
-                event.reply("Не удалось найти канал").setEphemeral(true).queue();
+            String content = Files.readString(path);
+            JSONObject object = new JSONObject(content);
+
+            if (!object.has(templateName)){
+                event.reply("Шаблона с таким названием не существует.").setEphemeral(true).queue();
                 return;
             }
 
-            channel.retrieveMessageById(messageId).queue(
-                    message -> {
-                        message.delete().queue();
-                        event.reply("Сообщение удалено.").setEphemeral(true).queue();
-                    },
-                    failure -> {
-                        log.error("Caught an unexpected error while deleting message: \n {} \n {}", failure.getMessage(), failure.getStackTrace());
-                        event.reply("Не удалось удалить embed-сообщение.").setEphemeral(true).queue();
-                    }
-            );
+            object.remove(templateName);
+            FileWriter writer = new FileWriter(path.toFile());
+            object.write(writer);
+            writer.close();
+            event.reply("Шаблон успешно удален.").setEphemeral(true).queue();
         } catch (Exception e) {
             log.error("Caught an unexpected error while deleting embed message: \n {} \n {}", e.getMessage(), e.getStackTrace());
-            event.reply("Не удалось удалить ваше embed-сообщение.").setEphemeral(true).queue();
+            event.reply("Не удалось удалить ваше embed-шаблон.").setEphemeral(true).queue();
         }
     }
 }
