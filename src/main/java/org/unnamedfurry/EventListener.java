@@ -40,14 +40,20 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.ImageProxy;
+import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -437,7 +443,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Участник <@" + event.getMember().getId() + "> вышел из сервера.";
+                String message = "Участник `" + event.getMember() + "` вышел из сервера.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging old member's leaving: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -508,6 +514,10 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 String key = event.getGuild().getId() + "-" + event.getMessage().getId();
+                if (!messageHistory.containsKey(key)){
+                    log.error("Message can't be found in message cash. Key: " + key + ".");
+                    return;
+                }
                 String[] oldMessage = messageHistory.get(key).split("ʩ");
                 String newMessage = event.getMessage().getContentRaw();
                 if (oldMessage[0] != null && oldMessage[1] != null){
@@ -564,7 +574,7 @@ public class EventListener extends ListenerAdapter {
 
     private String formatPermissions(EnumSet<Permission> set) {
         if (set.isEmpty())
-            return "пусто";
+            return " ";
 
         return set.stream()
                 .map(Permission::getName)
@@ -578,12 +588,10 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 EnumSet<Permission> newAllowSet = event.getPermissionOverride().getAllowed();
-                EnumSet<Permission> newInheritsSet = event.getPermissionOverride().getInherit();
                 EnumSet<Permission> newDenySet = event.getPermissionOverride().getDenied();
                 String newPermissions = "+ Разрешено: " + formatPermissions(newAllowSet) + "\n" +
-                                "- Запрещено: " + formatPermissions(newDenySet) + "\n" +
-                                "| Наследуется: " + formatPermissions(newInheritsSet);
-                String message = "Участник <@" + event.getMember().getId() + "> изменил разрешения для `" + event.getPermissionHolder().getId() + "`. \nНовые разрешения: \n" + newPermissions + "\n.";
+                                "- Запрещено: " + formatPermissions(newDenySet);
+                String message = "Участник `" + event.getMember() + "` изменил разрешения для `" + event.getPermissionHolder() + "`. \nНовые разрешения: \n" + newPermissions + "\n.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging permission override creating: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -598,18 +606,14 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 EnumSet<Permission> oldAllowSet = event.getOldAllow();
-                EnumSet<Permission> oldInheritsSet = event.getOldInherited();
                 EnumSet<Permission> oldDenySet = event.getOldDeny();
                 String oldPermissions = "+ Разрешено: " + formatPermissions(oldAllowSet) + "\n" +
-                        "- Запрещено: " + formatPermissions(oldDenySet) + "\n" +
-                        "| Наследуется: " + formatPermissions(oldInheritsSet);
+                        "- Запрещено: " + formatPermissions(oldDenySet);
                 EnumSet<Permission> newAllowSet = event.getPermissionOverride().getAllowed();
-                EnumSet<Permission> newInheritsSet = event.getPermissionOverride().getInherit();
                 EnumSet<Permission> newDenySet = event.getPermissionOverride().getDenied();
                 String newPermissions = "+ Разрешено: " + formatPermissions(newAllowSet) + "\n" +
-                        "- Запрещено: " + formatPermissions(newDenySet) + "\n" +
-                        "| Наследуется: " + formatPermissions(newInheritsSet);
-                String message = "Участник <@" + event.getMember().getId() + "> изменил разрешения для `" + event.getPermissionHolder().getId() + "`. \nСтарые разрешения: \n" + oldPermissions + "\n, новые разрешения: \n" + newPermissions + "\n.";
+                        "- Запрещено: " + formatPermissions(newDenySet);
+                String message = "Участник `" + event.getMember() + "` изменил разрешения для `" + event.getPermissionHolder() + "`. \nСтарые разрешения: \n" + oldPermissions + "\n, новые разрешения: \n" + newPermissions + "\n.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging permission override updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -624,12 +628,10 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 EnumSet<Permission> oldAllowSet = event.getPermissionOverride().getAllowed();
-                EnumSet<Permission> oldInheritsSet = event.getPermissionOverride().getInherit();
                 EnumSet<Permission> oldDenySet = event.getPermissionOverride().getDenied();
                 String oldPermissions = "+ Разрешено: " + formatPermissions(oldAllowSet) + "\n" +
-                        "- Запрещено: " + formatPermissions(oldDenySet) + "\n" +
-                        "| Наследуется: " + formatPermissions(oldInheritsSet);
-                String message = "Участник <@" + event.getMember().getId() + "> удалил разрешения для `" + event.getPermissionHolder().getId() + "`. \nСтарые разрешения: \n" + oldPermissions + "\n.";
+                        "- Запрещено: " + formatPermissions(oldDenySet);
+                String message = "Участник `" + event.getMember() + "` удалил разрешения для `" + event.getPermissionHolder() + "`. \nСтарые разрешения: \n" + oldPermissions + "\n.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging permission override deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -759,7 +761,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Обновлен AFK канал. \nСтарое название - `" + event.getOldAfkChannel().getName() + "`, старый айди - `" + event.getOldAfkChannel().getId() + "`, новое название - `" + event.getNewAfkChannel().getName() + "`, новый айди - `" + event.getNewAfkChannel().getId() + "`.";
+                String message = "Обновлен AFK канал. \nСтарый канал - `" + event.getOldAfkChannel() + "`, новый канал - `" + event.getNewAfkChannel() + "`.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging AFK channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -773,7 +775,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Обновлен системный канал. \nСтарое название - `" + event.getOldSystemChannel().getName() + "`, старый айди - `" + event.getOldSystemChannel().getId() + "`, новое название - `" + event.getNewSystemChannel().getName() + "`, новый айди - `" + event.getNewSystemChannel().getId() + "`.";
+                String message = "Обновлен системный канал. \nСтарый канал - `" + event.getOldSystemChannel() + "`, новый канал - `" + event.getNewSystemChannel() + "`.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging system channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -787,7 +789,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Обновлен правовой канал. \nСтарое название - `" + event.getOldRulesChannel().getName() + "`, старый айди - `" + event.getOldRulesChannel().getId() + "`, новое название - `" + event.getNewRulesChannel().getName() + "`, новый айди - `" + event.getNewRulesChannel().getId() + "`.";
+                String message = "Обновлен правовой канал. \nСтарый канал - `" + event.getOldRulesChannel() + "`, новый канал - `" + event.getNewRulesChannel() + "`.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging rules channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -801,7 +803,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Обновлен канал оповещений безопасности. \nСтарое название - `" + event.getOldSafetyAlertsChannel().getName() + "`, старый айди - `" + event.getOldSafetyAlertsChannel().getId() + "`, новое название - `" + event.getNewSafetyAlertsChannel().getName() + "`, новый айди - `" + event.getNewSafetyAlertsChannel().getId() + "`.";
+                String message = "Обновлен канал оповещений безопасности. \nСтарый канал - `" + event.getOldSafetyAlertsChannel() + "`, новый канал - `" + event.getNewSafetyAlertsChannel() + "`.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging safety alerts channel updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
@@ -1011,14 +1013,10 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                ImageProxy oldAvatar = event.getOldIcon().getIcon();
-                ImageProxy newAvatar = event.getNewIcon().getIcon();
-                FileUpload oldAvatar1 = oldAvatar.downloadAsFileUpload("oldIcon.png");
-                FileUpload newAvatar1 = newAvatar.downloadAsFileUpload("newIcon.png");
-                String message = "Изменена иконка роли. \nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старая иконка - `oldIcon.png`, новая иконка - `newIcon.png`.";
-                channel.sendMessage(message).addFiles(oldAvatar1, newAvatar1).queue();
-                oldAvatar1.close();
-                newAvatar1.close();
+                RoleIcon oldIcon = event.getOldIcon();
+                RoleIcon newIcon = event.getNewIcon();
+                String message = "Изменена иконка роли. \nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старая иконка - `" + oldIcon + "`, новая иконка - `" + newIcon + "`.";
+                channel.sendMessage(message).queue();
             } catch (Exception e) {
                 log.error("Error logging roles's icon changing: \n{}\n{}", e.getMessage(), e.getStackTrace());
             }

@@ -293,14 +293,13 @@ public class TextCommands {
                 }
 
                 JSONArray array = new JSONArray();
-                int i = 0;
-                array.put(i,"true");
-                array.put(i++, userChannelId);
-                array.put(i++, messageChannelId);
-                array.put(i++, permissionChannelId);
-                array.put(i++, channelChannelId);
-                array.put(i++, guildChannelId);
-                array.put(i++, roleChannelId);
+                array.put(0,"true");
+                array.put(1, userChannelId);
+                array.put(2, messageChannelId);
+                array.put(3, permissionChannelId);
+                array.put(4, channelChannelId);
+                array.put(5, guildChannelId);
+                array.put(6, roleChannelId);
 
                 json.put(guildId, array);
                 FileWriter writer = new FileWriter(path.toFile());
@@ -405,14 +404,13 @@ public class TextCommands {
                 }
 
                 JSONArray array = new JSONArray();
-                int i = 0;
-                array.put(i,"true");
-                array.put(i++, userChannelId);
-                array.put(i++, messageChannelId);
-                array.put(i++, permissionChannelId);
-                array.put(i++, channelChannelId);
-                array.put(i++, guildChannelId);
-                array.put(i++, roleChannelId);
+                array.put(0,"true");
+                array.put(1, userChannelId);
+                array.put(2, messageChannelId);
+                array.put(3, permissionChannelId);
+                array.put(4, channelChannelId);
+                array.put(5, guildChannelId);
+                array.put(6, roleChannelId);
 
                 json.put(guildId, array);
                 FileWriter writer = new FileWriter(path.toFile());
