@@ -138,6 +138,8 @@ public class EventListener extends ListenerAdapter {
             musicBot.queue(message);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {
             textCommands.HelpCommand(channel, message);
+        } else if (content.startsWith("!user")) {
+            textCommands.userCommand(channel, messageEvent);
         } else {
             String key = messageEvent.getGuild().getId() + "-" + message.getId();
             String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();

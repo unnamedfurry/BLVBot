@@ -3,6 +3,7 @@ package org.unnamedfurry;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.IntegrationType;
@@ -11,7 +12,6 @@ import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.utils.FileUpload;
-import net.dv8tion.jda.api.utils.SplitUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class TextCommands {
     final static Logger logger = LoggerFactory.getLogger(TextCommands.class);
@@ -86,6 +87,27 @@ public class TextCommands {
         } catch (Exception e) {
             logger.error("Error while processing avatar command: {}", e.getMessage());
             logger.error("Requested command: {}", message.getContentRaw());
+        }
+    }
+
+    public void userCommand(MessageChannel channel, MessageReceivedEvent event){
+        if (channel.getType().equals(ChannelType.TEXT)){
+            String text = "### Информация о пользователе " + event.getAuthor().getGlobalName() + "\n" +
+                    "Дата создания аккаунта: `" + event.getAuthor().getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
+                    "Дата захода на сервер: `" + event.getMember().getTimeJoined().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n"+
+                    "Голосовой статус: `" + event.getMember().getVoiceState().inAudioChannel() + "`\n" +
+                    "Сессия с: `" + event.getMember().getActiveClients() + "`\n" +
+                    "Онлайн статус: `" + event.getMember().getOnlineStatus() + "`\n" +
+                    "URL аватара: `" + event.getMember().getAvatarUrl() + "`\n" +
+                    "Роли: `" + event.getMember().getRoles().stream().map(role -> role.getName() + " (" + role.getId() + ")").collect(Collectors.joining(", ")) + "`\n" +
+                    "Айди аккаунта: `" + event.getMember().getIdLong() + "`.";
+            channel.sendMessage(text).queue();
+        } else if (channel.getType().equals(ChannelType.PRIVATE)){
+            String text = "### Информация о пользователе " + event.getAuthor().getGlobalName() + "\n" +
+                    "Дата создания аккаунта: `" + event.getAuthor().getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
+                    "URL аватара: `" + event.getAuthor().getAvatarUrl() + "`\n" +
+                    "Айди аккаунта: `" + event.getAuthor().getIdLong() + "`.";
+            channel.sendMessage(text).queue();
         }
     }
 
@@ -518,10 +540,18 @@ public class TextCommands {
             //Path filePath = Path.of("help-menu.txt");
 
             String aboutText = Files.readString(filePath);
-            List<String> messages = SplitUtil.split(aboutText, 1986);
-            for (String part : messages){
-                channel.sendMessage(part).queue();
+            String[] msgArr = aboutText.split("\n");
+            String tempText = "";
+            for (String s : msgArr) {
+                if (tempText.length()+s.length()+1 > 2000) {
+                    channel.sendMessage(tempText).queue();
+                    tempText = " ";
+                    tempText = s + "\n";
+                } else {
+                    tempText += (s + "\n");
+                }
             }
+            channel.sendMessage(tempText).queue();
             channel.sendMessage("-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
         } catch (Exception e) {
             logger.error(e.getMessage());

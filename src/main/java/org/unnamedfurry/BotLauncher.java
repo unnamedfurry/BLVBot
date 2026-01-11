@@ -13,7 +13,6 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -88,8 +87,8 @@ public class BotLauncher extends ListenerAdapter {
         return bot.getTextChannelById(channelId);
     }
 
-    public TextChannel getTextChannel(String channelId){
-        return bot.getTextChannelById(channelId);
+    public void getMessages(){
+
     }
 
     static int oldBitrate = 0;
@@ -157,8 +156,8 @@ public class BotLauncher extends ListenerAdapter {
             );
         });
 
-        /*client.on(StatsEvent.class).subscribe((event) -> {
-            final LavalinkNode node = event.getNode();
+        client.on(StatsEvent.class).subscribe((event) -> {
+            /*final LavalinkNode node = event.getNode();
 
             logger.info(
                     "Node '{}' has stats, current players: {}/{} (link count {})",
@@ -166,8 +165,9 @@ public class BotLauncher extends ListenerAdapter {
                     event.getPlayingPlayers(),
                     event.getPlayers(),
                     client.getLinks().size()
-            );
-        });*/
+            );*/
+            return;
+        });
 
         client.on(EmittedEvent.class).subscribe((event) -> {
             if (event instanceof TrackStartEvent) {
