@@ -1195,6 +1195,26 @@ public class EventListener extends ListenerAdapter {
             }
         }
     }
+
+    @Override
+    public void onRoleUpdatePermissions(RoleUpdatePermissionsEvent event){
+        String[] args = isEnabled(6, event.getGuild().getId());
+        if (args != null){
+            try {
+                event.getJDA().getGuildById(event.getGuild().getId()).retrieveAuditLogs().type(ActionType.ROLE_UPDATE).queue(auditLogEntries -> {
+                    MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
+                    EnumSet<Permission> oldPermission = event.getOldPermissions();
+                    String oldPermissions = "```\n× Старые разрешения: " + formatPermissions(oldPermission) + "\n```";
+                    EnumSet<Permission> newAllowSet = event.getNewPermissions();
+                    String newPermissions = "```\n+ Новые разрешения: " + formatPermissions(newAllowSet) + "\n```";
+                    String message = "Модератор <@" + auditLogEntries.getLast().getUserId() + "> изменил разрешения для роли <@&" + event.getEntity().getId() + ">. \nСтарые разрешения: \n" + oldPermissions + "\n, новые разрешения: \n" + newPermissions;
+                    channel.sendMessage(message).queue();
+                });
+            } catch (Exception e) {
+                log.error("Error logging role permission override updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
+            }
+        }
+    }
     //Checking section
 
     public String[] isEnabled(int index, String guildId){
