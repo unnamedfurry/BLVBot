@@ -1,6 +1,7 @@
 package org.unnamedfurry;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
@@ -92,21 +93,40 @@ public class TextCommands {
 
     public void userCommand(MessageChannel channel, MessageReceivedEvent event){
         if (channel.getType().equals(ChannelType.TEXT)){
-            String text = "### Информация о пользователе " + event.getAuthor().getGlobalName() + "\n" +
-                    "Дата создания аккаунта: `" + event.getAuthor().getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
-                    "Дата захода на сервер: `" + event.getMember().getTimeJoined().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n"+
-                    "Голосовой статус: `" + event.getMember().getVoiceState().inAudioChannel() + "`\n" +
-                    "Сессия с: `" + event.getMember().getActiveClients() + "`\n" +
-                    "Онлайн статус: `" + event.getMember().getOnlineStatus() + "`\n" +
-                    "URL аватара: `" + event.getMember().getAvatarUrl() + "`\n" +
-                    "Роли: `" + event.getMember().getRoles().stream().map(role -> role.getName() + " (" + role.getId() + ")").collect(Collectors.joining(", ")) + "`\n" +
-                    "Айди аккаунта: `" + event.getMember().getIdLong() + "`.";
+            Member member = event.getMember();
+            User user = event.getAuthor();
+            String text = "### Информация о пользователе " + user.getGlobalName() + "\n" +
+                    "Дата создания аккаунта: `" + user.getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
+                    "Дата захода на сервер: `" + member.getTimeJoined().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n"+
+                    "Голосовой статус: " + (member.getVoiceState().inAudioChannel() ? "подключен к каналу `" + member.getVoiceState().getChannel().getName() + "`" : "`не подключен к RTC`") + "\n" +
+                    "URL аватара: `" + user.getAvatarUrl() + "`\n" +
+                    "Роли: `" + member.getRoles().stream().map(role -> role.getName() + " (" + role.getId() + ")").collect(Collectors.joining(", ")) + "`\n" +
+                    "Айди аккаунта: `" + member.getIdLong() + "`.";
             channel.sendMessage(text).queue();
         } else if (channel.getType().equals(ChannelType.PRIVATE)){
-            String text = "### Информация о пользователе " + event.getAuthor().getGlobalName() + "\n" +
-                    "Дата создания аккаунта: `" + event.getAuthor().getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
-                    "URL аватара: `" + event.getAuthor().getAvatarUrl() + "`\n" +
-                    "Айди аккаунта: `" + event.getAuthor().getIdLong() + "`.";
+            User user = event.getAuthor();
+            String text = "### Информация о пользователе " + user.getGlobalName() + "\n" +
+                    "Дата создания аккаунта: `" + user.getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
+                    "URL аватара: `" + user.getAvatarUrl() + "`\n" +
+                    "Айди аккаунта: `" + user.getIdLong() + "`.";
+            channel.sendMessage(text).queue();
+        }
+    }
+
+    public void serverCommand(MessageChannel channel, MessageReceivedEvent event){
+        if (channel.getType().equals(ChannelType.TEXT)){
+            Guild guild = event.getGuild();
+            String text = "### Информация о сервере " + guild.getName() + "\n" +
+                    "Описание: `" + (guild.getDescription() == null || guild.getDescription().equals("null") ? "отсутствует" : guild.getDescription()) + "`\n" +
+                    "Дата создания сервера: `" + guild.getTimeCreated().format(DateTimeFormatter.RFC_1123_DATE_TIME) + "`\n" +
+                    "Всего участников: `" + guild.getMemberCount() + "`\n" +
+                    "URL иконки: `" + guild.getIconUrl() + "`\n" +
+                    "Бустов: `" + guild.getBoostCount() + "`\n" +
+                    "Язык: `" + guild.getLocale() + "`\n" +
+                    "Айди сервера: `" + guild.getIdLong() + "`.";
+            channel.sendMessage(text).queue();
+        } else if (channel.getType().equals(ChannelType.PRIVATE)){
+            String text = "Такое в лс не используется гений";
             channel.sendMessage(text).queue();
         }
     }

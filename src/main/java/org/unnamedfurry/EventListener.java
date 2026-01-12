@@ -140,6 +140,8 @@ public class EventListener extends ListenerAdapter {
             textCommands.HelpCommand(channel, message);
         } else if (content.startsWith("!user")) {
             textCommands.userCommand(channel, messageEvent);
+        } else if (content.startsWith("!server")) {
+            textCommands.serverCommand(channel, messageEvent);
         } else {
             String key = messageEvent.getGuild().getId() + "-" + message.getId();
             String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
