@@ -3,12 +3,14 @@ package org.unnamedfurry;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.audit.ActionType;
-import net.dv8tion.jda.api.audit.AuditLogEntry;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.Channel;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
@@ -38,6 +40,10 @@ import net.dv8tion.jda.api.events.message.MessageUpdateEvent;
 import net.dv8tion.jda.api.events.role.RoleCreateEvent;
 import net.dv8tion.jda.api.events.role.RoleDeleteEvent;
 import net.dv8tion.jda.api.events.role.update.*;
+import net.dv8tion.jda.api.events.session.ReadyEvent;
+import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
+import net.dv8tion.jda.api.events.session.SessionResumeEvent;
+import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.utils.FileUpload;
@@ -69,6 +75,34 @@ public class EventListener extends ListenerAdapter {
             return size() > 1000;
         }
     };
+
+    @Override
+    public void onReady(ReadyEvent event){
+        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
+            event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Service UP").queue();
+        });
+    }
+
+    @Override
+    public void onShutdown(ShutdownEvent event){
+        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
+            event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Service DOWN (light exit)").queue();
+        });
+    }
+
+    @Override
+    public void onSessionDisconnect(SessionDisconnectEvent event){
+        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
+            event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Session DISCONNECTED").queue();
+        });
+    }
+
+    @Override
+    public void onSessionResume(SessionResumeEvent event){
+        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
+            event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Session RESUMED").queue();
+        });
+    }
 
     @Override
     public void onMessageReceived(MessageReceivedEvent messageEvent){
@@ -142,6 +176,16 @@ public class EventListener extends ListenerAdapter {
             textCommands.userCommand(channel, messageEvent);
         } else if (content.startsWith("!server")) {
             textCommands.serverCommand(channel, messageEvent);
+        } else if (content.equals("?shutdown")) {
+            if (channel.getType() == ChannelType.PRIVATE && channel.getId().equals("1433490601487368192")){
+                messageEvent.getJDA().shutdownNow();
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log.error(e.getMessage());
+                }
+                System.exit(0);
+            }
         } else {
             String key = messageEvent.getGuild().getId() + "-" + message.getId();
             String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();

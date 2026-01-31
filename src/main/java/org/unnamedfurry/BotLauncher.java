@@ -20,9 +20,14 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
@@ -73,6 +78,34 @@ public class BotLauncher extends ListenerAdapter {
         bot = JDABuilder.createDefault(botToken()).addEventListeners(new EventListener())
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.AUTO_MODERATION_CONFIGURATION, GatewayIntent.AUTO_MODERATION_EXECUTION, GatewayIntent.DIRECT_MESSAGE_REACTIONS, GatewayIntent.DIRECT_MESSAGE_TYPING, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MESSAGE_TYPING, GatewayIntent.GUILD_MODERATION, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_WEBHOOKS)
                 .setVoiceDispatchInterceptor(new JDAVoiceUpdateListener(client)).build().awaitReady();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                bot.shutdownNow();
+                System.out.println("\nShutting down...\n");
+                HttpClient client1 = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+                String messageJSON = """
+                        {"content": "Service DOWN (hard exit)", "tts": false}
+                        """;
+                HttpRequest sendMessageRequest = HttpRequest.newBuilder()
+                                .uri(URI.create("https://discord.com/api/v10/channels/1433490601487368192/messages"))
+                                        .header("Authorization", "Bot " + botToken())
+                                                .header("Content-Type", "application/json")
+                                                        .header("User-Agent", "DiscordBot (https://github.com/unnamedfurry/BLVBot, 1.0)")
+                                                                .POST(HttpRequest.BodyPublishers.ofString(messageJSON))
+                                                                        .build();
+                HttpResponse<String> messageResponse = client1.send(sendMessageRequest, HttpResponse.BodyHandlers.ofString());
+                if (messageResponse.statusCode() >= 200 && messageResponse.statusCode() < 300){
+                    System.out.println("\nSent shutdown message successfully");
+                } else {
+                    System.out.println("\nError sending shutdown message: " + messageResponse.statusCode() + " -> " + messageResponse.body());
+                }
+
+                Thread.sleep(1000);
+            } catch (Exception e) {
+                logger.error(e.getMessage());
+            }
+        }));
     }
 
     public boolean presentInChannel(Guild guild){
@@ -85,10 +118,6 @@ public class BotLauncher extends ListenerAdapter {
 
     public MessageChannel getNewMessageChannel(String channelId){
         return bot.getTextChannelById(channelId);
-    }
-
-    public void getMessages(){
-
     }
 
     static int oldBitrate = 0;
