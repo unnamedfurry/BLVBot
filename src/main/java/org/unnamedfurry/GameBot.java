@@ -26,7 +26,7 @@ import java.util.Objects;
 
 public class GameBot {
     private static final Logger log = LoggerFactory.getLogger(GameBot.class);
-    public static String getTime(){
+    private static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");

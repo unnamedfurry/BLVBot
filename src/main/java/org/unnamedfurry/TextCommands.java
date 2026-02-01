@@ -1,7 +1,6 @@
 package org.unnamedfurry;
 
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
@@ -36,7 +35,7 @@ import java.util.stream.Collectors;
 
 public class TextCommands {
     final static Logger logger = LoggerFactory.getLogger(TextCommands.class);
-    public static String getTime(){
+    private static String getTime(){
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         String date = LocalDate.now().format(dateFormatter);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
