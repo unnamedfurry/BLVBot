@@ -8,8 +8,12 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.channel.ChannelCreateEvent;
@@ -28,6 +32,7 @@ import net.dv8tion.jda.api.events.guild.override.PermissionOverrideCreateEvent;
 import net.dv8tion.jda.api.events.guild.override.PermissionOverrideDeleteEvent;
 import net.dv8tion.jda.api.events.guild.override.PermissionOverrideUpdateEvent;
 import net.dv8tion.jda.api.events.guild.update.*;
+import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
@@ -35,6 +40,7 @@ import net.dv8tion.jda.api.events.message.MessageBulkDeleteEvent;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.message.MessageUpdateEvent;
+import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.events.role.RoleCreateEvent;
 import net.dv8tion.jda.api.events.role.RoleDeleteEvent;
 import net.dv8tion.jda.api.events.role.update.*;
@@ -81,6 +87,24 @@ public class EventListener extends ListenerAdapter {
     LinkedHashMap<String, String> messageHistory = new LinkedHashMap<String, String>(1000, 0.5f, false){
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+            return size() > 1000;
+        }
+    };
+    LinkedHashMap<String, String> voiceOwners = new LinkedHashMap<String, String>(100, 0.5f, false){
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, String> eldest){
+            return size() > 100;
+        }
+    };
+    LinkedHashMap<String, Boolean> locked = new LinkedHashMap<String, Boolean>(1000, 0.5f, false){
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+            return size() > 1000;
+        }
+    };
+    LinkedHashMap<String, Boolean> muted = new LinkedHashMap<String, Boolean>(1000, 0.5f, false){
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
             return size() > 1000;
         }
     };
@@ -149,7 +173,7 @@ public class EventListener extends ListenerAdapter {
             textCommands.clearCommands(channel, messageEvent);
         } else if (content.equals("?registerCommands")) {
             textCommands.registerCommands(channel, messageEvent);
-        } else if (content.startsWith("?enableLogger")) {
+        } else if (content.startsWith("!enableLogger")) {
             String[] args = content.split(" ");
             if (args.length == 7) {
                 textCommands.enableLogger(message, channel, messageEvent, args[1], args[2], args[3], args[4], args[5], args[6]);
@@ -158,9 +182,9 @@ public class EventListener extends ListenerAdapter {
             } else {
                 channel.sendMessage("Неправильное использование команды. Правильно: `?enableLogger userChannelId messageChannelId permissionChannelId channelChannelId guildChannelId roleChannelId`.").queue();
             }
-        } else if (content.startsWith("?disableLogger")) {
+        } else if (content.startsWith("!disableLogger")) {
             textCommands.disableLogger(message, channel, messageEvent);
-        } else if (content.startsWith("?updateLogger")) {
+        } else if (content.startsWith("!updateLogger")) {
             String[] args = content.split(" ");
             if (args.length == 7) {
                 textCommands.updateLogger(message, channel, messageEvent, args[1], args[2], args[3], args[4], args[5], args[6]);
@@ -169,14 +193,6 @@ public class EventListener extends ListenerAdapter {
             }
         } else if (content.startsWith("!play")) {
             musicBot.play(message);
-        } else if (content.startsWith("!stop")) {
-            musicBot.stop(message);
-        } else if (content.startsWith("!pause")) {
-            musicBot.pause(message);
-        } else if (content.startsWith("!skip")) {
-            musicBot.skip(message);
-        } else if (content.startsWith("!wipeQueue")) {
-            musicBot.clear(message);
         } else if (content.startsWith("!queue")) {
             musicBot.queue(message);
         } else if (content.startsWith("!help") || content.startsWith("!usage")) {
@@ -185,6 +201,8 @@ public class EventListener extends ListenerAdapter {
             textCommands.userCommand(channel, messageEvent);
         } else if (content.startsWith("!server")) {
             textCommands.serverCommand(channel, messageEvent);
+        } else if (content.startsWith("!voiceManager")) {
+            textCommands.createVoiceManager(channel, message.getContentRaw(), messageEvent.getGuild());
         } else if (content.equals("?shutdown")) {
             if (channel.getType() == ChannelType.PRIVATE && channel.getId().equals("1433490601487368192")){
                 messageEvent.getJDA().shutdownNow();
@@ -196,9 +214,171 @@ public class EventListener extends ListenerAdapter {
                 System.exit(0);
             }
         } else {
-            String key = messageEvent.getGuild().getId() + "-" + message.getId();
-            String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
-            messageHistory.put(key, value);
+            if (channel.getType() != ChannelType.PRIVATE){
+                String key = messageEvent.getGuild().getId() + "-" + message.getId();
+                String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
+                messageHistory.put(key, value);
+            }
+        }
+    }
+
+    @Override
+    public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event){
+        String channelId = "";
+        try {
+            Path jarDir = Paths.get(
+                    BotLauncher.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            ).getParent();
+            Path path = jarDir.resolve("voiceChannels.json");
+            //Path path = Path.of("voiceChannels.json");
+
+            String content = Files.readString(path);
+            JSONObject json = new JSONObject(content);
+            channelId = json.getString(event.getGuild().getId());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        if (event.getChannelJoined() != null && event.getChannelJoined().getId().equals(channelId)){
+            Guild guild = event.getGuild();
+            Category category = event.getChannelJoined().getParentCategory();
+            AudioChannel channel = guild.createVoiceChannel(event.getMember().getEffectiveName(), category).complete();
+            Collection<Permission> allow = List.of(Permission.VOICE_CONNECT);
+            channel.getManager().putPermissionOverride(guild.getPublicRole(), allow, null).queue();
+            guild.moveVoiceMember(event.getMember().getUser(), channel).queue();
+            voiceOwners.put(event.getMember().getUser().getId(), channel.getId());
+        }
+        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))){
+            Guild guild = event.getGuild();
+            Channel channel = guild.getChannelById(VoiceChannel.class, voiceOwners.get(event.getMember().getUser().getId()));
+            channel.delete().queue();
+            voiceOwners.remove(event.getMember().getUser().getId());
+        }
+    }
+
+    @Override
+    public void onMessageReactionAdd(MessageReactionAddEvent event){
+        if (event.getEmoji().equals(Emoji.fromUnicode("⏸\uFE0F"))){
+            if (event.getMember() != event.getGuild().getSelfMember()){
+                musicBot.pause(event.getGuild(), event.getChannel().asGuildMessageChannel(), event.getMember());
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("⏹\uFE0F"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()){
+                musicBot.stop(event.getGuild(), event.getChannel().asGuildMessageChannel(), event.getMember());
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("⏭\uFE0F"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()) {
+                musicBot.skip(event.getGuild(), event.getChannel().asGuildMessageChannel());
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("⏏\uFE0F"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()){
+                musicBot.clear(event.getGuild(), event.getChannel().asGuildMessageChannel());
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("✏\uFE0F"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()){
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))){
+                    event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши желаемое название комнаты реплеем ниже").queue(replyMsg -> {
+                        event.getJDA().addEventListener(new ListenerAdapter() {
+                            @Override
+                            public void onMessageReceived(MessageReceivedEvent event1){
+                                if (event1.getAuthor().getId().equals(event.getMember().getUser().getId()) && event1.getChannel().equals(event.getMember().getVoiceState().getChannel()) && event1.getMessage().getReferencedMessage() != null){
+                                    event.getMember().getVoiceState().getChannel().asVoiceChannel().getManager().setName(event1.getMessage().getContentRaw().substring(0, Math.min(event1.getMessage().getContentRaw().length(), 20))).queue();
+                                } else {
+                                    return;
+                                }
+                                event.getJDA().removeEventListener(this);
+                            }
+                        });
+                    });
+                }
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83D\uDD10"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                    if (!locked.containsKey(event.getMember().getVoiceState().getChannel().getId()) || !locked.get(event.getMember().getVoiceState().getChannel().getId())){
+                        Collection<Permission> deny = List.of(Permission.VOICE_CONNECT);
+                        event.getMember().getVoiceState().getChannel().asVoiceChannel().getManager().putPermissionOverride(event.getGuild().getPublicRole(), null, deny).queue();
+                        locked.put(event.getMember().getVoiceState().getChannel().getId(), true);
+                    } else {
+                        Collection<Permission> allow = List.of(Permission.VOICE_CONNECT);
+                        event.getMember().getVoiceState().getChannel().asVoiceChannel().getManager().putPermissionOverride(event.getGuild().getPublicRole(), allow, null).queue();
+                        locked.put(event.getMember().getVoiceState().getChannel().getId(), false);
+                    }
+                }
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83D\uDC65"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                    event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши желаемое количество участников реплеем ниже").queue(replyMsg -> {
+                        event.getJDA().addEventListener(new ListenerAdapter() {
+                            @Override
+                            public void onMessageReceived(MessageReceivedEvent event1){
+                                if (event1.getAuthor().getId().equals(event.getMember().getUser().getId()) && event1.getChannel().equals(event.getMember().getVoiceState().getChannel()) && event1.getMessage().getReferencedMessage() != null){
+                                    event.getMember().getVoiceState().getChannel().asVoiceChannel().getManager().setUserLimit(Integer.parseInt(event1.getMessage().getContentRaw().substring(0, Math.min(event1.getMessage().getContentRaw().length(), 10)))).queue();
+                                } else {
+                                    return;
+                                }
+                                event.getJDA().removeEventListener(this);
+                            }
+                        });
+                    });
+                }
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83D\uDEAB"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                    event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши айди желаемого участника реплеем ниже").queue(replyMsg -> {
+                        event.getJDA().addEventListener(new ListenerAdapter() {
+                            @Override
+                            public void onMessageReceived(MessageReceivedEvent event1){
+                                if (event1.getAuthor().getId().equals(event.getMember().getUser().getId()) && event1.getChannel().equals(event.getMember().getVoiceState().getChannel()) && event1.getMessage().getReferencedMessage() != null){
+                                    User user = event.getJDA().getUserById(event1.getMessage().getContentRaw());
+                                    event.getGuild().kickVoiceMember(user).queue();
+                                } else {
+                                    return;
+                                }
+                                event.getJDA().removeEventListener(this);
+                            }
+                        });
+                    });
+                }
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
+        } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83C\uDFA4"))) {
+            if (event.getMember() != event.getGuild().getSelfMember()) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                    event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши айди желаемого участника реплеем ниже").queue(replyMsg -> {
+                        event.getJDA().addEventListener(new ListenerAdapter() {
+                            @Override
+                            public void onMessageReceived(MessageReceivedEvent event1){
+                                if (event1.getAuthor().getId().equals(event.getMember().getUser().getId()) && event1.getChannel().equals(event.getMember().getVoiceState().getChannel()) && event1.getMessage().getReferencedMessage() != null){
+                                    User user = event.getJDA().getUserById(event1.getMessage().getContentRaw());
+                                    if (!muted.containsKey(user.getId()) || !muted.get(user.getId())){
+                                        event.getGuild().mute(user, true).queue();
+                                        muted.put(user.getId(), true);
+                                    } else {
+                                        event.getGuild().mute(user, false).queue();
+                                        muted.put(user.getId(), false);
+                                    }
+                                } else {
+                                    return;
+                                }
+                                event.getJDA().removeEventListener(this);
+                            }
+                        });
+                    });
+                }
+                event.getReaction().removeReaction(event.getMember().getUser()).queue();
+            }
         }
     }
 
@@ -557,7 +737,7 @@ public class EventListener extends ListenerAdapter {
                     roleIds.add("<@&" + r.getId() + ">");
                 }
                 String rolesStr = String.join(", ", roleIds);
-                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") получил новые роли. \nДобавлено: \n```\n" + rolesStr + "\n```";
+                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") получил новые роли. \nДобавлено: \n" + rolesStr;
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
@@ -583,7 +763,7 @@ public class EventListener extends ListenerAdapter {
                     roleIds.add("<@&" + r.getId() + ">");
                 }
                 String rolesStr = String.join(", ", roleIds);
-                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") потерял старые роли. Убрано: \n```\n" + rolesStr + "\n```";
+                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") потерял старые роли. Убрано: \n" + rolesStr;
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
@@ -1062,7 +1242,7 @@ public class EventListener extends ListenerAdapter {
             try {
                 event.getJDA().getGuildById(event.getGuild().getId()).retrieveAuditLogs().type(ActionType.VOICE_CHANNEL_STATUS_UPDATE).queue(auditLogEntries -> {
                     MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                    String message = "Участник <@" + auditLogEntries.getLast().getUserId() + "> (" + auditLogEntries.getLast().getUser().getGlobalName() + ", " + auditLogEntries.getLast().getUser().getId() + ") изменил статус воис канала.\nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старое значение - `" + event.getOldValue() + "`, новое значение - `" + event.getNewValue() + "`.";
+                    String message = "Участник <@" + auditLogEntries.getLast().getUserId() + "> (" + auditLogEntries.getLast().getUser().getGlobalName() + ", " + auditLogEntries.getLast().getUser().getId() + ") изменил статус воис канала.\nНазвание - `" + event.getChannel().getName() + "`, айди - `" + event.getChannel().getId() + "`, старое значение - `" + (event.getOldValue().isEmpty() ? "пусто" : event.getOldValue()) + "`, новое значение - `" + (event.getNewValue().isEmpty() ? "пусто" : event.getNewValue()) + "`.";
                     channel.sendMessage(message).queue();
                 });
             } catch (Exception e) {

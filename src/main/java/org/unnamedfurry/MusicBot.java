@@ -3,6 +3,8 @@ package org.unnamedfurry;
 import dev.arbjerg.lavalink.client.player.Track;
 import dev.arbjerg.lavalink.client.Link;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -133,7 +135,7 @@ public class MusicBot {
                         .doOnSuccess(p -> {
                             if (!playlisted){
                                 try {
-                                    message.getChannel().sendMessage("Сейчас играет: `" + title + "`.\nДля паузы отправьте команду `!pause`, для остановки произведения отправьте команду `!stop`, для перехода к следующей песне отправьте команду `!skip`.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                                    message.getChannel().sendMessage("Сейчас играет: `" + title + "`.\nДля добавления трека в очередь используйте `!queue`.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue(message1 -> {message1.addReaction(Emoji.fromUnicode("⏸\uFE0F")).queue(); message1.addReaction(Emoji.fromUnicode("⏹\uFE0F")).queue(); message1.addReaction(Emoji.fromUnicode("⏭\uFE0F")).queue(); message1.addReaction(Emoji.fromUnicode("⏏\uFE0F")).queue();});
                                 } catch (Exception e) {
                                     logger.error("Error in success handler: {}", e.getMessage());
                                     message.getChannel().sendMessage("Произошла ошибка. Код ошибки: P-1.").queue();
@@ -166,51 +168,49 @@ public class MusicBot {
         }
     }
 
-    public void stop(Message message){
-        Member selfMember = message.getGuild().getSelfMember();
+    public void stop(Guild guild, MessageChannel channel, Member author){
+        Member selfMember = guild.getSelfMember();
         GuildVoiceState selfState = selfMember.getVoiceState();
-        GuildVoiceState memberState = Objects.requireNonNull(message.getMember()).getVoiceState();
-        long guildID = message.getGuildIdLong();
-        Optional<Link> maybeLink = Optional.ofNullable(BotLauncher.getLinkIfCashed(guildID));
+        GuildVoiceState memberState = author.getVoiceState();
+        Optional<Link> maybeLink = Optional.ofNullable(BotLauncher.getLinkIfCashed(guild.getIdLong()));
         if (!Objects.requireNonNull(memberState).inAudioChannel()){
-            message.getChannel().sendMessage("Вам нужно находиться в голосовом канале!\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            channel.sendMessage("Тебе нужно находиться в голосовом канале!\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
             return;
         }
         if (maybeLink.isEmpty()){
-            message.getChannel().sendMessage("Мне нужно находиться в голосовом канале для этого!\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            channel.sendMessage("Мне нужно находиться в голосовом канале для этого!\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
             return;
         }
         try {
             if (Objects.equals(memberState.getChannel(), Objects.requireNonNull(selfState).getChannel())){
                 Link link = maybeLink.get();
                 Objects.requireNonNull(link.getPlayer().block()).stopTrack().subscribe();
-                link.getNode().destroyPlayerAndLink(guildID).subscribe();
+                link.getNode().destroyPlayerAndLink(guild.getIdLong()).subscribe();
                 QueueManager qm = getQueueManager();
-                qm.clear(guildID);
-                message.getChannel().sendMessage("Проигрывание было завершено и очередь была очищена.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
-                BotLauncher.disconnect(message);
+                qm.clear(guild.getIdLong());
+                channel.sendMessage("Проигрывание было завершено и очередь была очищена.\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
+                BotLauncher.disconnect(guild, author, channel);
             }
         } catch (Exception e) {
-            message.getChannel().sendMessage("Произошла ошибка при обработке команды!").queue();
+            channel.sendMessage("Произошла ошибка при обработке команды").queue();
             logger.error(e.toString());
         }
 
     }
 
-    public void pause(Message message){
-        long guildID = message.getGuildIdLong();
-        Optional<Link> maybeLink = Optional.ofNullable(BotLauncher.getLinkIfCashed(guildID));
-        if (maybeLink.isEmpty()) message.getChannel().sendMessage("В данный момент никакая музыка не воспроизводится.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+    public void pause(Guild guild, MessageChannel channel, Member author){
+        Optional<Link> maybeLink = Optional.ofNullable(BotLauncher.getLinkIfCashed(guild.getIdLong()));
+        if (maybeLink.isEmpty()) channel.sendMessage("В данный момент никакая музыка не воспроизводится.\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
         Link link = maybeLink.get();
         Objects.requireNonNull(link.getPlayer().block()).setPaused(!Objects.requireNonNull(link.getPlayer().block()).getPaused()).subscribe(p -> {
             boolean paused = Objects.requireNonNull(link.getPlayer().block()).getPaused();
             if (paused) {
-                message.getChannel().sendMessage("Трек приостановлен.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                channel.sendMessage("Трек приостановлен.\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
             } else {
-                message.getChannel().sendMessage("Трек возобновлен.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+                channel.sendMessage("Трек возобновлен.\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
             }
         }, err -> {
-            message.getChannel().sendMessage("Не удалось переключить паузу.\n-# Запрошено пользователем: " + message.getAuthor().getName() + ", " + getTime()).queue();
+            channel.sendMessage("Не удалось переключить паузу.\n-# Запрошено пользователем: " + author.getUser().getName() + ", " + getTime()).queue();
             logger.warn("Can't skip user's track!: {}", err.getMessage());
         });
     }
@@ -233,22 +233,20 @@ public class MusicBot {
         message.getChannel().sendMessage(sb.toString()).queue();
     }
 
-    public void skip(Message message){
-        if (queueManager.hasNext(message.getGuildIdLong())){
-            long guildId = message.getGuildIdLong();
-            Link link = BotLauncher.getOrCreateLink(guildId);
+    public void skip(Guild guild, MessageChannel channel){
+        if (queueManager.hasNext(guild.getIdLong())){
+            Link link = BotLauncher.getOrCreateLink(guild.getIdLong());
             Objects.requireNonNull(link.getPlayer().block()).stopTrack().subscribe();
-            getQueueManager().skip(guildId);
-            message.getChannel().sendMessage("Трек пропущен").queue();
+            getQueueManager().skip(guild.getIdLong());
+            channel.sendMessage("Трек пропущен").queue();
         } else {
-            message.getChannel().sendMessage("Очередь пуста.").queue();
+            channel.sendMessage("Очередь пуста.").queue();
         }
     }
 
-    public void clear(Message message){
-        long guildId = message.getGuildIdLong();
-        getQueueManager().clear(guildId);
-        message.getChannel().sendMessage("Очередь очищена.").queue();
+    public void clear(Guild guild, MessageChannel channel){
+        getQueueManager().clear(guild.getIdLong());
+        channel.sendMessage("Очередь очищена.").queue();
     }
 }
 

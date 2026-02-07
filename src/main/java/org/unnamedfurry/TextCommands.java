@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.IntegrationType;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
@@ -461,6 +462,34 @@ public class TextCommands {
             }
         } catch (Exception e) {
             logger.error("Failed to edit logger: \n{}\n{}", e.getMessage(), e.getStackTrace());
+        }
+    }
+
+    public void createVoiceManager(MessageChannel channel, String message, Guild guild){
+        channel.sendMessage("## Центр управления голосовыми комнатами.\nНиже указаны все доступные вам опции:\n```\n✏\uFE0F - переименовать комнату\n\uD83D\uDD10 - закрыть комнату\n\uD83D\uDC65 - изменить количество участников комнаты\n\uD83D\uDEAB - выгнать участника из комнаты\n\uD83C\uDFA4 - замьютить участника комнаты\n```").queue(message1 -> {
+            message1.addReaction(Emoji.fromUnicode("✏\uFE0F")).queue(); message1.addReaction(Emoji.fromUnicode("\uD83D\uDD10")).queue(); message1.addReaction(Emoji.fromUnicode("\uD83D\uDC65")).queue(); message1.addReaction(Emoji.fromUnicode("\uD83D\uDEAB")).queue(); message1.addReaction(Emoji.fromUnicode("\uD83C\uDFA4")).queue();
+        });
+        String[] msgArr = message.split(" ");
+        try {
+            Path jarDir = Paths.get(
+                    BotLauncher.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            ).getParent();
+            Path path = jarDir.resolve("voiceChannels.json");
+            //Path path = Path.of("voiceChannels.json");
+
+            String content = Files.readString(path);
+            JSONObject json = new JSONObject(content);
+            json.put(guild.getId(), msgArr[1]);
+            FileWriter writer = new FileWriter(path.toFile());
+            json.write(writer);
+            writer.close();
+            channel.sendMessage("Распределительный канал упешно забинден.").queue();
+        } catch (Exception e){
+            channel.sendMessage("Не удалось забиндить распределительный канал.").queue();
+            logger.error(e.getMessage());
         }
     }
 

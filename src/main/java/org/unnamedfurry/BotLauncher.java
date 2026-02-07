@@ -12,6 +12,7 @@ import dev.arbjerg.lavalink.libraries.jda.JDAVoiceUpdateListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -135,14 +136,14 @@ public class BotLauncher extends ListenerAdapter {
         }
     }
 
-    public static void disconnect(Message message) {
+    public static void disconnect(Guild guild, Member member, MessageChannel channel) {
         try {
-            VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(Objects.requireNonNull(message.getMember()).getVoiceState()).getChannel();
+            VoiceChannel memberChannel = (VoiceChannel) member.getVoiceState().getChannel();
             Objects.requireNonNull(memberChannel).getManager().setBitrate(oldBitrate).queue();
-            bot.getDirectAudioController().disconnect(message.getGuild());
+            bot.getDirectAudioController().disconnect(guild);
         } catch (Exception e) {
             logger.error("Caught an error while leaving to the channel!: {}", e.getMessage());
-            message.getChannel().sendMessage("Возникла непредвиденная ошибка во время отключения от войса.").queue();
+            channel.sendMessage("Возникла непредвиденная ошибка во время отключения от войса.").queue();
         }
     }
 
