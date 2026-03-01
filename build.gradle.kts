@@ -30,7 +30,7 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    implementation("net.dv8tion:JDA:6.1.1")
+    implementation("net.dv8tion:JDA:6.3.0")
     implementation("ch.qos.logback:logback-classic:1.5.13")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("org.json:json:20250517")

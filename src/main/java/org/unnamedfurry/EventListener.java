@@ -123,7 +123,7 @@ public class EventListener extends ListenerAdapter {
         });
     }
 
-    @Override
+    /*@Override
     public void onSessionDisconnect(SessionDisconnectEvent event){
         event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
             event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Session DISCONNECTED").queue();
@@ -135,10 +135,16 @@ public class EventListener extends ListenerAdapter {
         event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
             event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Session RESUMED").queue();
         });
-    }
+    }*/
 
     @Override
     public void onMessageReceived(MessageReceivedEvent messageEvent){
+        if (messageEvent.getMessage().isFromGuild()){
+            String key = messageEvent.getGuild().getId() + "-" + messageEvent.getMessage().getId();
+            String value = messageEvent.getMessage().getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
+            messageHistory.put(key, value);
+        }
+
         if (messageEvent.getAuthor().isBot()) return;
 
         Message message = messageEvent.getMessage();
@@ -212,12 +218,6 @@ public class EventListener extends ListenerAdapter {
                     log.error(e.getMessage());
                 }
                 System.exit(0);
-            }
-        } else {
-            if (channel.getType() != ChannelType.PRIVATE){
-                String key = messageEvent.getGuild().getId() + "-" + message.getId();
-                String value = message.getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
-                messageHistory.put(key, value);
             }
         }
     }
@@ -817,9 +817,9 @@ public class EventListener extends ListenerAdapter {
                 String newMessage = event.getMessage().getContentRaw();
                 if (oldMessage[0] != null && oldMessage[1] != null){
                     String preUpdatedMessage = oldMessage[0];
-                    if (preUpdatedMessage.length() > 1900 || newMessage.length() > 1900){
-                        File file1 = new File("/root/DiscordBot/tempFiles/pre-updated-" + oldMessage[1] + getTime() + ".txt");
-                        File file2 = new File("/root/DiscordBot/tempFiles/post-updated-" + newMessage + getTime() + ".txt");
+                    if (preUpdatedMessage.length() > 500 || newMessage.length() > 500){
+                        File file1 = new File("/root/DiscordBot/tempFiles/pre-updated-" + event.getMessageId() + getTime() + ".txt");
+                        File file2 = new File("/root/DiscordBot/tempFiles/post-updated-" + event.getMessageId() + getTime() + ".txt");
                         FileWriter writer1 = new FileWriter(file1);
                         writer1.write(preUpdatedMessage);
                         writer1.close();
@@ -831,7 +831,7 @@ public class EventListener extends ListenerAdapter {
                         String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") удалил сообщение. \nСтарое сообщение: `pre-updated.txt`, новое сообщение: `post-updated.txt`.";
                         channel.sendMessage(message).addFiles(updatedMessage1, updatedMessage2).queue(success -> {
                             if (file1.delete() && file2.delete()) return;
-                            else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
+                            //else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
                         });
                         file1.delete();
                         file2.delete();
@@ -844,7 +844,7 @@ public class EventListener extends ListenerAdapter {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 log.error("Error logging message updating: \n{}\n{}", e.getMessage(), e.getStackTrace());
                 String error = e.getMessage();
-                if (error.length()>1900){
+                if (error.length()>800){
                     error = error.substring(0, e.getMessage().length()-100);
                 }
                 channel.sendMessage("Error occurred during message updated logging! Error: \n```\n" + error + "\n```").queue();
@@ -862,8 +862,8 @@ public class EventListener extends ListenerAdapter {
                 String[] oldMessage = messageHistory.get(key).split("ʩ");
                 if (oldMessage[0] != null && oldMessage[1] != null){
                     String deletedMessage = oldMessage[0];
-                    if (deletedMessage.length() > 1900){
-                        File file = new File("/root/DiscordBot/tempFiles/deleted-" + oldMessage[1] + getTime() + ".txt");
+                    if (deletedMessage.length() > 1500){
+                        File file = new File("/root/DiscordBot/tempFiles/deleted-" + event.getMessageId() + getTime() + ".txt");
                         FileWriter writer = new FileWriter(file);
                         writer.write(deletedMessage);
                         writer.close();
@@ -871,7 +871,7 @@ public class EventListener extends ListenerAdapter {
                         String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: `deletedMessage.txt`";
                         channel.sendMessage(message).addFiles(deletedMessageFile).queue(success -> {
                             if (file.delete()) return;
-                            else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
+                            //else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
                         });
                         file.delete();
                     } else {
@@ -883,7 +883,7 @@ public class EventListener extends ListenerAdapter {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 log.error("Error logging message deleting: \n{}\n{}", e.getMessage(), e.getStackTrace());
                 String error = e.getMessage();
-                if (error.length()>1900){
+                if (error.length()>1800){
                     error = error.substring(0, e.getMessage().length()-100);
                 }
                 channel.sendMessage("Error occurred during message deleted logging! Error: \n```\n" + error + "\n```").queue();
