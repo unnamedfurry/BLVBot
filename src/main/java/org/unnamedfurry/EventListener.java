@@ -50,16 +50,17 @@ import net.dv8tion.jda.api.events.session.SessionResumeEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.utils.AttachedFile;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.ImageProxy;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -139,9 +140,21 @@ public class EventListener extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(MessageReceivedEvent messageEvent){
-        if (messageEvent.getMessage().isFromGuild()){
+        if (messageEvent.getMessage().isFromGuild() && messageEvent.getMessage().getEmbeds().isEmpty()){
             String key = messageEvent.getGuild().getId() + "-" + messageEvent.getMessage().getId();
-            String value = messageEvent.getMessage().getContentRaw() + "ʩ" + messageEvent.getAuthor().getId();
+            String attacmhents = (!messageEvent.getMessage().getAttachments().isEmpty()) ? "" : null;
+            if (!messageEvent.getMessage().getAttachments().isEmpty()){
+                for (int i=0; i<messageEvent.getMessage().getAttachments().size(); i++){
+                    attacmhents += messageEvent.getMessage().getAttachments().get(i).getFileName() + "Ǣ";
+                    File file = new File("/root/DiscordBot/tempFiles/attachment-" + messageEvent.getMessageId() + "-" + messageEvent.getMessage().getAttachments().get(i).getFileName());
+                    if (file.exists()) return;
+                    messageEvent.getMessage().getAttachments().get(i).getProxy().downloadToFile(file).exceptionally(e -> {
+                        log.error("Error downloading file: " + e.getMessage());
+                        return null;
+                    });
+                }
+            }
+            String value = messageEvent.getMessage().getContentRaw() + "ʩ" + messageEvent.getAuthor().getId() + "ʩ" + attacmhents;
             messageHistory.put(key, value);
         }
 
@@ -645,7 +658,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") изменил ник. \nСтарый ник - `" + event.getOldNickname() + "`, новый ник - `" + event.getNewNickname() + "`.";
+                String message = "Участник <@" + event.getUser().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") изменил ник. \nСтарый ник - `" + event.getOldNickname() + "`, новый ник - `" + event.getNewNickname() + "`.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
@@ -669,7 +682,7 @@ public class EventListener extends ListenerAdapter {
                 ImageProxy newAvatar = event.getNewAvatar();
                 FileUpload oldAvatar1 = oldAvatar.downloadAsFileUpload("oldAvatar.png");
                 FileUpload newAvatar1 = newAvatar.downloadAsFileUpload("newAvatar.png");
-                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") изменил аватар.\nСтарый аватар - `oldAvatar.png`, новый аватар - `newAvatar.png`.";
+                String message = "Участник <@" + event.getUser().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") изменил аватар.\nСтарый аватар - `oldAvatar.png`, новый аватар - `newAvatar.png`.";
                 channel.sendMessage(message).addFiles(oldAvatar1, newAvatar1).queue();
                 oldAvatar1.close();
                 newAvatar1.close();
@@ -691,7 +704,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") зашел на сервер.";
+                String message = "Участник <@" + event.getUser().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") зашел на сервер.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
@@ -711,7 +724,7 @@ public class EventListener extends ListenerAdapter {
         if (args != null){
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Участник <@" + event.getMember().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") вышел из сервера.";
+                String message = "Участник <@" + event.getUser().getId() + "> (" + event.getUser().getGlobalName() + ", " + event.getUser().getId() + ") вышел из сервера.";
                 channel.sendMessage(message).queue();
             } catch (Exception e) {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
@@ -808,14 +821,10 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 String key = event.getGuild().getId() + "-" + event.getMessage().getId();
-                if (!messageHistory.containsKey(key)){
-                    log.error("Message can't be found in message cash. Key: " + key + ".");
-                    channel.sendMessage("Message can't be found in message cash. Key: " + key + ".").queue();
-                    return;
-                }
+                if (!messageHistory.containsKey(key)) return;
                 String[] oldMessage = messageHistory.get(key).split("ʩ");
                 String newMessage = event.getMessage().getContentRaw();
-                if (oldMessage[0] != null && oldMessage[1] != null){
+                if (!oldMessage[0].isEmpty() && !oldMessage[1].isEmpty()){
                     String preUpdatedMessage = oldMessage[0];
                     if (preUpdatedMessage.length() > 500 || newMessage.length() > 500){
                         File file1 = new File("/root/DiscordBot/tempFiles/pre-updated-" + event.getMessageId() + getTime() + ".txt");
@@ -824,20 +833,50 @@ public class EventListener extends ListenerAdapter {
                         writer1.write(preUpdatedMessage);
                         writer1.close();
                         FileWriter writer2 = new FileWriter(file2);
-                        writer2.write(preUpdatedMessage);
+                        writer2.write(newMessage);
                         writer2.close();
                         FileUpload updatedMessage1 = FileUpload.fromData(file1, "pre-updated.txt");
-                        FileUpload updatedMessage2 = FileUpload.fromData(file1, "post-updated.txt");
-                        String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") удалил сообщение. \nСтарое сообщение: `pre-updated.txt`, новое сообщение: `post-updated.txt`.";
-                        channel.sendMessage(message).addFiles(updatedMessage1, updatedMessage2).queue(success -> {
-                            if (file1.delete() && file2.delete()) return;
-                            //else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
-                        });
+                        FileUpload updatedMessage2 = FileUpload.fromData(file2, "post-updated.txt");
+                        if (!oldMessage[2].isEmpty()){
+                            String[] attachments = oldMessage[2].split("Ǣ");
+                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") удалил сообщение. \nСтарое сообщение: `pre-updated.txt`, новое сообщение: `post-updated.txt`. Прикрепленные файлы: ";
+                            MessageCreateBuilder mcb = new MessageCreateBuilder();
+                            mcb.setContent(message);
+                            for (int i=0; i<attachments.length; i++){
+                                File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                FileUpload upload = FileUpload.fromData(file, attachments[i]);
+                                mcb.addFiles(upload);
+                            }
+                            MessageCreateData mcd = mcb.build();
+                            channel.sendMessage(mcd).queue(success -> {
+                                if (file1.delete() && file2.delete()) return;
+                            });
+                        } else {
+                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") удалил сообщение. \nСтарое сообщение: `pre-updated.txt`, новое сообщение: `post-updated.txt`.";
+                            channel.sendMessage(message).addFiles(updatedMessage1, updatedMessage2).queue(success -> {
+                                if (file1.delete() && file2.delete()) return;
+                                //else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
+                            });
+                        }
                         file1.delete();
                         file2.delete();
                     } else {
-                        String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n" + oldMessage[0] + "\n```\nНовое сообщение: \n```\n" + newMessage + "\n```";
-                        channel.sendMessage(message).queue();
+                        if (!oldMessage[2].isEmpty()){
+                            String[] attachments = oldMessage[2].split("Ǣ");
+                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n " + oldMessage[0] + " \n```\nНовое сообщение: \n```\n " + newMessage + " \n```\nПрикрепленные файлы:";
+                            MessageCreateBuilder mcb = new MessageCreateBuilder();
+                            mcb.setContent(message);
+                            for (int i=0; i<attachments.length; i++){
+                                File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                FileUpload upload = FileUpload.fromData(file, attachments[i]);
+                                mcb.addFiles(upload);
+                            }
+                            MessageCreateData mcd = mcb.build();
+                            channel.sendMessage(mcd).queue();
+                        } else {
+                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n " + oldMessage[0] + " \n```\nНовое сообщение: \n```\n"  + newMessage + " \n```";
+                            channel.sendMessage(message).queue();
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -859,8 +898,9 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 String key = event.getGuild().getId() + "-" + event.getMessageId();
+                if (!messageHistory.containsKey(key)) return;
                 String[] oldMessage = messageHistory.get(key).split("ʩ");
-                if (oldMessage[0] != null && oldMessage[1] != null){
+                if (!oldMessage[0].isEmpty() && !oldMessage[1].isEmpty()){
                     String deletedMessage = oldMessage[0];
                     if (deletedMessage.length() > 1500){
                         File file = new File("/root/DiscordBot/tempFiles/deleted-" + event.getMessageId() + getTime() + ".txt");
@@ -868,15 +908,47 @@ public class EventListener extends ListenerAdapter {
                         writer.write(deletedMessage);
                         writer.close();
                         FileUpload deletedMessageFile = FileUpload.fromData(file, "deletedMessage.txt");
-                        String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: `deletedMessage.txt`";
-                        channel.sendMessage(message).addFiles(deletedMessageFile).queue(success -> {
-                            if (file.delete()) return;
-                            //else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
-                        });
+                        if (!oldMessage[2].isEmpty()){
+                            String[] attachments = oldMessage[2].split("Ǣ");
+                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: `deletedMessage.txt`. Прикрепленные файлы: ";
+                            MessageCreateBuilder mcb = new MessageCreateBuilder();
+                            mcb.setContent(message);
+                            for (int i=0; i<attachments.length; i++){
+                                File file1 = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                FileUpload upload = FileUpload.fromData(file, attachments[i]);
+                                mcb.addFiles(upload);
+                                if (file1.delete());
+                            }
+                            MessageCreateData mcd = mcb.build();
+                            channel.sendMessage(mcd).queue(success -> {
+                                if (file.delete()) return;
+                            });
+                        } else {
+                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: `deletedMessage.txt`";
+                            channel.sendMessage(message).addFiles(deletedMessageFile).queue(success -> {
+                                if (file.delete()) return;
+                                //else channel.sendMessage("Failed to send a message of file deletion with attached file").queue();
+                            });
+                        }
                         file.delete();
                     } else {
-                        String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n" + deletedMessage + "\n```";
-                        channel.sendMessage(message).queue();
+                        if (!oldMessage[2].isEmpty()){
+                            String[] attachments = oldMessage[2].split("Ǣ");
+                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n " + deletedMessage + " \n```\nПрикрепленные файлы: ";
+                            MessageCreateBuilder mcb = new MessageCreateBuilder();
+                            mcb.setContent(message);
+                            for (int i=0; i<attachments.length; i++){
+                                File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                FileUpload upload = FileUpload.fromData(file, attachments[i]);
+                                mcb.addFiles(upload);
+                                if (file.delete());
+                            }
+                            MessageCreateData mcd = mcb.build();
+                            channel.sendMessage(mcd).queue();
+                        } else {
+                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n " + deletedMessage + " \n```";
+                            channel.sendMessage(message).queue();
+                        }
                     }
                 }
             } catch (Exception e) {
