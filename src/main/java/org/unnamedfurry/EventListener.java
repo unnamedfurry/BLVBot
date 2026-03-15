@@ -45,12 +45,9 @@ import net.dv8tion.jda.api.events.role.RoleCreateEvent;
 import net.dv8tion.jda.api.events.role.RoleDeleteEvent;
 import net.dv8tion.jda.api.events.role.update.*;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
-import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
-import net.dv8tion.jda.api.events.session.SessionResumeEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
-import net.dv8tion.jda.api.utils.AttachedFile;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
@@ -112,16 +109,12 @@ public class EventListener extends ListenerAdapter {
 
     @Override
     public void onReady(ReadyEvent event){
-        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
-            event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Service UP").queue();
-        });
+        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Service UP").queue());
     }
 
     @Override
     public void onShutdown(ShutdownEvent event){
-        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> {
-            event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Service DOWN (light exit)").queue();
-        });
+        event.getJDA().openPrivateChannelById("897054945889644564").queue(success -> event.getJDA().getPrivateChannelById("1433490601487368192").sendMessage("Service DOWN (light exit)").queue());
     }
 
     /*@Override
@@ -843,6 +836,7 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
+                                if (attachments[1] == null) break;
                                 File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
@@ -867,6 +861,7 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
+                                if (attachments[1] == null) break;
                                 File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
@@ -914,6 +909,7 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
+                                if (attachments[1] == null) break;
                                 File file1 = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
@@ -938,6 +934,7 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
+                                if (attachments[1] == null) break;
                                 File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
@@ -1727,12 +1724,12 @@ public class EventListener extends ListenerAdapter {
     }
 
     @Override
-    public void onRoleUpdateColor(RoleUpdateColorEvent event) {
+    public void onRoleUpdateColors(RoleUpdateColorsEvent event) {
         String[] args = isEnabled(6, event.getGuild().getId());
         if (args != null){
             try {event.getJDA().getGuildById(event.getGuild().getId()).retrieveAuditLogs().type(ActionType.ROLE_UPDATE).queue(auditLogEntries -> {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
-                String message = "Модератор <@" + auditLogEntries.getLast().getUserId() + "> (" + auditLogEntries.getLast().getUser().getGlobalName() + ", " + auditLogEntries.getLast().getUser().getId() + ") обновил цвет роли.\nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старый цвет - `" + event.getOldColor().getRGB() + "`, новый цвет - `" + event.getNewColor().getRGB() + "`.";
+                String message = "Модератор <@" + auditLogEntries.getLast().getUserId() + "> (" + auditLogEntries.getLast().getUser().getGlobalName() + ", " + auditLogEntries.getLast().getUser().getId() + ") обновил цвет роли.\nНазвание - `" + event.getRole().getName() + "`, айди - `" + event.getRole().getId() + "`, старый цвет - `" + event.getOldValue().getPrimary().getRGB() + "`, новый цвет - `" + event.getNewValue().getPrimary().getRGB() + "`.";
                 channel.sendMessage(message).queue();
                 });
             } catch (Exception e) {
