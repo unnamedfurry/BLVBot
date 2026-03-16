@@ -133,14 +133,15 @@ public class EventListener extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(MessageReceivedEvent messageEvent){
-        if (messageEvent.getMessage().isFromGuild() && messageEvent.getMessage().getEmbeds().isEmpty()){
+        if (messageEvent.getMessage().isFromGuild() && !messageEvent.isWebhookMessage()){
             String key = messageEvent.getGuild().getId() + "-" + messageEvent.getMessage().getId();
             String attacmhents = (!messageEvent.getMessage().getAttachments().isEmpty()) ? "" : null;
-            if (!messageEvent.getMessage().getAttachments().isEmpty()){
+            if (!messageEvent.getMessage().getAttachments().isEmpty() && messageEvent.getMessage().getEmbeds().isEmpty()){
                 for (int i=0; i<messageEvent.getMessage().getAttachments().size(); i++){
+                    if (messageEvent.getMessage().getAttachments().get(i).getFileName().isBlank()) continue;
                     attacmhents += messageEvent.getMessage().getAttachments().get(i).getFileName() + "Ǣ";
                     File file = new File("/root/DiscordBot/tempFiles/attachment-" + messageEvent.getMessageId() + "-" + messageEvent.getMessage().getAttachments().get(i).getFileName());
-                    if (file.exists()) return;
+                    if (file.exists()) continue;
                     messageEvent.getMessage().getAttachments().get(i).getProxy().downloadToFile(file).exceptionally(e -> {
                         log.error("Error downloading file: " + e.getMessage());
                         return null;
@@ -836,8 +837,8 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
-                                if (attachments[1] == null) break;
                                 File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                if (!file.exists()) continue;
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
                             }
@@ -861,8 +862,8 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
-                                if (attachments[1] == null) break;
                                 File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                if (!file.exists()) continue;
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
                             }
@@ -909,8 +910,8 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
-                                if (attachments[1] == null) break;
                                 File file1 = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                if (!file1.exists()) continue;
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
                                 if (file1.delete());
@@ -934,8 +935,8 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
-                                if (attachments[1] == null) break;
                                 File file = new File("/root/DiscordBot/tempFiles/attachment-" + event.getMessageId() + "-" + attachments[i]);
+                                if (!file.exists()) continue;
                                 FileUpload upload = FileUpload.fromData(file, attachments[i]);
                                 mcb.addFiles(upload);
                                 if (file.delete());
