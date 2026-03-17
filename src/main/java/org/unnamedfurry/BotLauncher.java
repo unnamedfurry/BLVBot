@@ -28,6 +28,9 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -107,6 +110,43 @@ public class BotLauncher extends ListenerAdapter {
                 logger.error(e.getMessage());
             }
         }));
+    }
+
+    public void initDB(){
+        for (Guild guild : bot.getGuilds()){
+            String url = "jdbc:mysql://127.0.0.1:3306/?useSSL=false&serverTimezone=UTC";
+            try (Connection c = DriverManager.getConnection(url, "root", "null")){
+                String createDB = "CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci".formatted(guild.getId());
+                try (var cs = c.createStatement()){
+                    cs.executeUpdate(createDB);
+                    logger.info("\n(Re)Created DB {}", guild.getId());
+                }
+                String dbUrl = "jdbc:mysql://127.0.0.1:3306/" + guild.getId() + "?useSSL=false&serverTimezone=UTC";
+                try (Connection c1 = DriverManager.getConnection(dbUrl, "root", "null")){
+                    createTableIfNotExists(c1, "messagehistory");
+                    createTableIfNotExists(c1, "voiceowners");
+                    createTableIfNotExists(c1, "locked");
+                    createTableIfNotExists(c1, "muted");
+
+                    logger.info("All tables were initialized\n");
+                }
+            } catch (SQLException e){
+                logger.error("Error occurred while trying to initialise DB: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void createTableIfNotExists(Connection c, String tableName) throws SQLException{
+        String sql = """
+                CREATE TABLE IF NOT EXISTS `%s` (
+                    `key` VARCHAR(255) NOT NULL PRIMARY KEY,
+                    `value` TEXT NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """.formatted(tableName);
+        try (var cs = c.createStatement()){
+            cs.executeUpdate(sql);
+            logger.info("Created table {}", tableName);
+        }
     }
 
     public boolean presentInChannel(Guild guild){

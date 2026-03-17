@@ -39,6 +39,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-core:2.16.1")
     implementation("commons-io:commons-io:2.15.1")
     implementation("org.bytedeco:javacv-platform:1.5.12")
+    implementation("com.mysql:mysql-connector-j:8.4.0")
 }
 
 tasks.test {

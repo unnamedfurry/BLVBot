@@ -61,6 +61,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -76,19 +77,89 @@ public class EventListener extends ListenerAdapter {
         return "-" + date + "-" + time;
     }
     private static final Logger log = LoggerFactory.getLogger(EventListener.class);
+    BotLauncher bot = new BotLauncher();
     TextCommands textCommands = new TextCommands();
     SlashCommands slashCommands = new SlashCommands();
     MusicBot musicBot = new MusicBot();
     EmbedBot ticketBot = new EmbedBot();
     TenzraTicketBot tenzraTicketBot = new TenzraTicketBot();
     GameBot gameBot = new GameBot();
-    LinkedHashMap<String, String> messageHistory = new LinkedHashMap<String, String>(1000, 0.5f, false){
+    String getFromDB(String dbName, String tableName, String key){
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String sql = "SELECT value FROM " + tableName + " WHERE `key` = ?";
+        String ans = "";
+        try (Connection c = DriverManager.getConnection(url, "root", "null")){
+            try (PreparedStatement ps = c.prepareStatement(sql)){
+                ps.setString(1, key);
+                try (ResultSet rs = ps.executeQuery()){
+                    if (rs.next()){
+                        ans = rs.getString("value");
+                    }
+                }
+            }
+        } catch (SQLException e){
+            log.error("Error occurred while trying to get value from DB: {} -> {} ", key, e.getMessage());
+        }
+        return ans;
+    }
+    boolean pullToDB(String dbName, String tableName, String key, String value){
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String sql = """
+                INSERT INTO %s (`key`, `value`)
+                VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE `value` = ?
+                """.formatted(tableName);
+        try (Connection c = DriverManager.getConnection(url, "root", "null")){
+            try (PreparedStatement ps = c.prepareStatement(sql)){
+                ps.setString(1, key);
+                ps.setString(2, value);
+                ps.setString(3, value);
+                int rows = ps.executeUpdate();
+                return rows > 0;
+            }
+        } catch (SQLException e){
+            log.error("Error occured while trying to put value into DB: {} -> {} -> {}", key, value, e.getMessage());
+        }
+        return false;
+    }
+    boolean remFromDB(String dbName, String tableName, String key){
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String sql = "DELETE FROM %s WHERE `key` = ?".formatted(tableName);
+        try (Connection c = DriverManager.getConnection(url, "root", "null")){
+            try (PreparedStatement ps = c.prepareStatement(sql)){
+                ps.setString(1, key);
+                int rows = ps.executeUpdate();
+                return rows > 0;
+            }
+        } catch (SQLException e){
+            log.error("Error occured while trying to delete key-value line in DB: {} -> {}", key, e.getMessage());
+        }
+        return false;
+    }
+    boolean hasInDB(String dbName, String tableName, String key){
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String sql = "SELECT value FROM " + tableName + " WHERE `key` = ?";
+        try (Connection c = DriverManager.getConnection(url, "root", "null")){
+            try (PreparedStatement ps = c.prepareStatement(sql)){
+                ps.setString(1, key);
+                try (ResultSet rs = ps.executeQuery()){
+                    if (rs.next()){
+                        return true;
+                    }
+                }
+            }
+        } catch (SQLException e){
+            log.error("Error occurred while trying to find value in DB: {} -> {} ", key, e.getMessage());
+        }
+        return false;
+    }
+    /*LinkedHashMap<String, String> messageHistory = new LinkedHashMap<String, String>(1000, 0.5f, false){
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
             return size() > 1000;
         }
     };
-    LinkedHashMap<String, String> voiceOwners = new LinkedHashMap<String, String>(100, 0.5f, false){
+    LinkedHashMap<String, String> voiceOwners = new LinkedHashMap<String, String>(1000, 0.5f, false){
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, String> eldest){
             return size() > 100;
@@ -105,7 +176,7 @@ public class EventListener extends ListenerAdapter {
         protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
             return size() > 1000;
         }
-    };
+    };*/
 
     @Override
     public void onReady(ReadyEvent event){
@@ -149,7 +220,7 @@ public class EventListener extends ListenerAdapter {
                 }
             }
             String value = messageEvent.getMessage().getContentRaw() + "ʩ" + messageEvent.getAuthor().getId() + "ʩ" + attacmhents;
-            messageHistory.put(key, value);
+            pullToDB(messageEvent.getGuild().getId(), "messagehistory", key, value);
         }
 
         if (messageEvent.getAuthor().isBot()) return;
@@ -226,6 +297,10 @@ public class EventListener extends ListenerAdapter {
                 }
                 System.exit(0);
             }
+        } else if (content.equals("?initDB")) {
+            if (channel.getType() == ChannelType.PRIVATE && channel.getId().equals("1433490601487368192")){
+                bot.initDB();
+            }
         }
     }
 
@@ -255,13 +330,13 @@ public class EventListener extends ListenerAdapter {
             Collection<Permission> allow = List.of(Permission.VOICE_CONNECT);
             channel.getManager().putPermissionOverride(guild.getPublicRole(), allow, null).queue();
             guild.moveVoiceMember(event.getMember().getUser(), channel).queue();
-            voiceOwners.put(event.getMember().getUser().getId(), channel.getId());
+            pullToDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId(), channel.getId());
         }
-        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))){
+        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(getFromDB(event.getGuild().getId(), "voieowners", event.getMember().getUser().getId()))){
             Guild guild = event.getGuild();
-            Channel channel = guild.getChannelById(VoiceChannel.class, voiceOwners.get(event.getMember().getUser().getId()));
+            Channel channel = guild.getChannelById(VoiceChannel.class, getFromDB(event.getGuild().getId(), "voieowners", event.getMember().getUser().getId()));
             channel.delete().queue();
-            voiceOwners.remove(event.getMember().getUser().getId());
+            remFromDB(guild.getId(), "voiceowners", event.getMember().getUser().getId());
         }
     }
 
@@ -289,7 +364,7 @@ public class EventListener extends ListenerAdapter {
             }
         } else if (event.getEmoji().equals(Emoji.fromUnicode("✏\uFE0F"))) {
             if (event.getMember() != event.getGuild().getSelfMember()){
-                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))){
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()))){
                     event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши желаемое название комнаты реплеем ниже").queue(replyMsg -> {
                         event.getJDA().addEventListener(new ListenerAdapter() {
                             @Override
@@ -308,22 +383,22 @@ public class EventListener extends ListenerAdapter {
             }
         } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83D\uDD10"))) {
             if (event.getMember() != event.getGuild().getSelfMember()) {
-                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
-                    if (!locked.containsKey(event.getMember().getVoiceState().getChannel().getId()) || !locked.get(event.getMember().getVoiceState().getChannel().getId())){
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()))) {
+                    if (!hasInDB(event.getGuild().getId(), "voiceowners", event.getMember().getVoiceState().getChannel().getId()) || !Boolean.parseBoolean(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getVoiceState().getChannel().getId()))){
                         Collection<Permission> deny = List.of(Permission.VOICE_CONNECT);
                         event.getMember().getVoiceState().getChannel().asVoiceChannel().getManager().putPermissionOverride(event.getGuild().getPublicRole(), null, deny).queue();
-                        locked.put(event.getMember().getVoiceState().getChannel().getId(), true);
+                        pullToDB(event.getGuild().getId(), "voiceowners", event.getMember().getVoiceState().getChannel().getId(), "true");
                     } else {
                         Collection<Permission> allow = List.of(Permission.VOICE_CONNECT);
                         event.getMember().getVoiceState().getChannel().asVoiceChannel().getManager().putPermissionOverride(event.getGuild().getPublicRole(), allow, null).queue();
-                        locked.put(event.getMember().getVoiceState().getChannel().getId(), false);
+                        pullToDB(event.getGuild().getId(), "voiceowners", event.getMember().getVoiceState().getChannel().getId(), "false");
                     }
                 }
                 event.getReaction().removeReaction(event.getMember().getUser()).queue();
             }
         } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83D\uDC65"))) {
             if (event.getMember() != event.getGuild().getSelfMember()) {
-                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()))) {
                     event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши желаемое количество участников реплеем ниже").queue(replyMsg -> {
                         event.getJDA().addEventListener(new ListenerAdapter() {
                             @Override
@@ -342,7 +417,7 @@ public class EventListener extends ListenerAdapter {
             }
         } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83D\uDEAB"))) {
             if (event.getMember() != event.getGuild().getSelfMember()) {
-                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()))) {
                     event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши айди желаемого участника реплеем ниже").queue(replyMsg -> {
                         event.getJDA().addEventListener(new ListenerAdapter() {
                             @Override
@@ -362,19 +437,19 @@ public class EventListener extends ListenerAdapter {
             }
         } else if (event.getEmoji().equals(Emoji.fromUnicode("\uD83C\uDFA4"))) {
             if (event.getMember() != event.getGuild().getSelfMember()) {
-                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(voiceOwners.get(event.getMember().getUser().getId()))) {
+                if (event.getMember().getVoiceState().inAudioChannel() && event.getMember().getVoiceState().getChannel().getId().equals(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()))) {
                     event.getMember().getVoiceState().getChannel().asGuildMessageChannel().sendMessage("<@"+event.getMember().getUser().getId()+">, напиши айди желаемого участника реплеем ниже").queue(replyMsg -> {
                         event.getJDA().addEventListener(new ListenerAdapter() {
                             @Override
                             public void onMessageReceived(MessageReceivedEvent event1){
                                 if (event1.getAuthor().getId().equals(event.getMember().getUser().getId()) && event1.getChannel().equals(event.getMember().getVoiceState().getChannel()) && event1.getMessage().getReferencedMessage() != null){
                                     User user = event.getJDA().getUserById(event1.getMessage().getContentRaw());
-                                    if (!muted.containsKey(user.getId()) || !muted.get(user.getId())){
+                                    if (!hasInDB(event.getGuild().getId(), "muted", user.getId()) || !Boolean.parseBoolean(getFromDB(event.getGuild().getId(), "muted", user.getId()))){
                                         event.getGuild().mute(user, true).queue();
-                                        muted.put(user.getId(), true);
+                                        pullToDB(event.getGuild().getId(), "muted", user.getId(), "true");
                                     } else {
                                         event.getGuild().mute(user, false).queue();
-                                        muted.put(user.getId(), false);
+                                        pullToDB(event.getGuild().getId(), "muted", user.getId(), "false");
                                     }
                                 } else {
                                     return;
@@ -815,8 +890,8 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 String key = event.getGuild().getId() + "-" + event.getMessage().getId();
-                if (!messageHistory.containsKey(key)) return;
-                String[] oldMessage = messageHistory.get(key).split("ʩ");
+                if (!hasInDB(event.getGuild().getId(), "messagehistory", key)) return;
+                String[] oldMessage = getFromDB(event.getGuild().getId(), "messagehistory", key).split("ʩ");
                 String newMessage = event.getMessage().getContentRaw();
                 if (!oldMessage[0].isEmpty() && !oldMessage[1].isEmpty()){
                     String preUpdatedMessage = oldMessage[0];
@@ -894,8 +969,8 @@ public class EventListener extends ListenerAdapter {
             try {
                 MessageChannel channel = event.getGuild().getChannelById(TextChannel.class, args[1]);
                 String key = event.getGuild().getId() + "-" + event.getMessageId();
-                if (!messageHistory.containsKey(key)) return;
-                String[] oldMessage = messageHistory.get(key).split("ʩ");
+                if (!hasInDB(event.getGuild().getId(), "messagehistory", key)) return;
+                String[] oldMessage = getFromDB(event.getGuild().getId(), "messagehistory", key).split("ʩ");
                 if (!oldMessage[0].isEmpty() && !oldMessage[1].isEmpty()){
                     String deletedMessage = oldMessage[0];
                     if (deletedMessage.length() > 1500){
@@ -971,7 +1046,7 @@ public class EventListener extends ListenerAdapter {
                 String guildId = event.getGuild().getId();
                 for (String id : messageIds){
                     String key = guildId + "-" + id;
-                    String[] oldMessage = messageHistory.get(key).split("ʩ");
+                    String[] oldMessage = getFromDB(event.getGuild().getId(), "messagehistory", key).split("ʩ");
                     if (oldMessage[0] != null && oldMessage[1] != null){
                         String deletedMessage = oldMessage[0];
                         if (deletedMessage.length() > 1900){
