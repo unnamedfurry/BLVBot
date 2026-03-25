@@ -114,14 +114,14 @@ public class BotLauncher extends ListenerAdapter {
 
     public void initDB(){
         for (Guild guild : bot.getGuilds()){
-            String url = "jdbc:mysql://127.0.0.1:3306/?useSSL=false&serverTimezone=UTC";
+            String url = "jdbc:mysql://127.0.0.1:3306/?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
             try (Connection c = DriverManager.getConnection(url, "root", "null")){
                 String createDB = "CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci".formatted(guild.getId());
                 try (var cs = c.createStatement()){
                     cs.executeUpdate(createDB);
                     logger.info("\n(Re)Created DB {}", guild.getId());
                 }
-                String dbUrl = "jdbc:mysql://127.0.0.1:3306/" + guild.getId() + "?useSSL=false&serverTimezone=UTC";
+                String dbUrl = "jdbc:mysql://127.0.0.1:3306/" + guild.getId() + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
                 try (Connection c1 = DriverManager.getConnection(dbUrl, "root", "null")){
                     createTableIfNotExists(c1, "messagehistory");
                     createTableIfNotExists(c1, "voiceowners");

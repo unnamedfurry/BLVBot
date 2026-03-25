@@ -85,9 +85,12 @@ public class EventListener extends ListenerAdapter {
     TenzraTicketBot tenzraTicketBot = new TenzraTicketBot();
     GameBot gameBot = new GameBot();
     String getFromDB(String dbName, String tableName, String key){
-        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
         String sql = "SELECT value FROM " + tableName + " WHERE `key` = ?";
         String ans = "";
+        // CREATE USER 'root'@'127.0.0.1' IDENTIFIED BY 'null';
+        // GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1';
+        // FLUSH PRIVILEGES;
         try (Connection c = DriverManager.getConnection(url, "root", "null")){
             try (PreparedStatement ps = c.prepareStatement(sql)){
                 ps.setString(1, key);
@@ -103,7 +106,7 @@ public class EventListener extends ListenerAdapter {
         return ans;
     }
     boolean pullToDB(String dbName, String tableName, String key, String value){
-        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
         String sql = """
                 INSERT INTO %s (`key`, `value`)
                 VALUES (?, ?)
@@ -123,7 +126,7 @@ public class EventListener extends ListenerAdapter {
         return false;
     }
     boolean remFromDB(String dbName, String tableName, String key){
-        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
         String sql = "DELETE FROM %s WHERE `key` = ?".formatted(tableName);
         try (Connection c = DriverManager.getConnection(url, "root", "null")){
             try (PreparedStatement ps = c.prepareStatement(sql)){
@@ -137,7 +140,7 @@ public class EventListener extends ListenerAdapter {
         return false;
     }
     boolean hasInDB(String dbName, String tableName, String key){
-        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC";
+        String url = "jdbc:mysql://127.0.0.1:3306/" + dbName + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
         String sql = "SELECT value FROM " + tableName + " WHERE `key` = ?";
         try (Connection c = DriverManager.getConnection(url, "root", "null")){
             try (PreparedStatement ps = c.prepareStatement(sql)){
@@ -206,7 +209,7 @@ public class EventListener extends ListenerAdapter {
     public void onMessageReceived(MessageReceivedEvent messageEvent){
         if (messageEvent.getMessage().isFromGuild() && !messageEvent.isWebhookMessage()){
             String key = messageEvent.getGuild().getId() + "-" + messageEvent.getMessage().getId();
-            String attacmhents = (!messageEvent.getMessage().getAttachments().isEmpty()) ? "" : null;
+            String attacmhents = "";
             if (!messageEvent.getMessage().getAttachments().isEmpty() && messageEvent.getMessage().getEmbeds().isEmpty()){
                 for (int i=0; i<messageEvent.getMessage().getAttachments().size(); i++){
                     if (messageEvent.getMessage().getAttachments().get(i).getFileName().isBlank()) continue;
@@ -219,7 +222,8 @@ public class EventListener extends ListenerAdapter {
                     });
                 }
             }
-            String value = messageEvent.getMessage().getContentRaw() + "ʩ" + messageEvent.getAuthor().getId() + "ʩ" + attacmhents;
+            String value = messageEvent.getMessage().getContentRaw().replaceAll("`", "ˋ")
+                    + "ʩ" + messageEvent.getAuthor().getId() + "ʩ" + attacmhents;
             pullToDB(messageEvent.getGuild().getId(), "messagehistory", key, value);
         }
 
@@ -332,9 +336,9 @@ public class EventListener extends ListenerAdapter {
             guild.moveVoiceMember(event.getMember().getUser(), channel).queue();
             pullToDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId(), channel.getId());
         }
-        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(getFromDB(event.getGuild().getId(), "voieowners", event.getMember().getUser().getId()))){
+        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(getFromDB(event.getGuild().getId(), "voiсeowners", event.getMember().getUser().getId()))){
             Guild guild = event.getGuild();
-            Channel channel = guild.getChannelById(VoiceChannel.class, getFromDB(event.getGuild().getId(), "voieowners", event.getMember().getUser().getId()));
+            Channel channel = guild.getChannelById(VoiceChannel.class, getFromDB(event.getGuild().getId(), "voiсeowners", event.getMember().getUser().getId()));
             channel.delete().queue();
             remFromDB(guild.getId(), "voiceowners", event.getMember().getUser().getId());
         }
@@ -892,7 +896,7 @@ public class EventListener extends ListenerAdapter {
                 String key = event.getGuild().getId() + "-" + event.getMessage().getId();
                 if (!hasInDB(event.getGuild().getId(), "messagehistory", key)) return;
                 String[] oldMessage = getFromDB(event.getGuild().getId(), "messagehistory", key).split("ʩ");
-                String newMessage = event.getMessage().getContentRaw();
+                String newMessage = event.getMessage().getContentRaw().replaceAll("`", "ˋ");
                 if (!oldMessage[0].isEmpty() && !oldMessage[1].isEmpty()){
                     String preUpdatedMessage = oldMessage[0];
                     if (preUpdatedMessage.length() > 500 || newMessage.length() > 500){
@@ -906,7 +910,7 @@ public class EventListener extends ListenerAdapter {
                         writer2.close();
                         FileUpload updatedMessage1 = FileUpload.fromData(file1, "pre-updated.txt");
                         FileUpload updatedMessage2 = FileUpload.fromData(file2, "post-updated.txt");
-                        if (!oldMessage[2].isEmpty()){
+                        if (oldMessage.length == 3){
                             String[] attachments = oldMessage[2].split("Ǣ");
                             String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") удалил сообщение. \nСтарое сообщение: `pre-updated.txt`, новое сообщение: `post-updated.txt`. Прикрепленные файлы: ";
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
@@ -931,9 +935,9 @@ public class EventListener extends ListenerAdapter {
                         file1.delete();
                         file2.delete();
                     } else {
-                        if (!oldMessage[2].isEmpty()){
+                        if (oldMessage.length == 3){
                             String[] attachments = oldMessage[2].split("Ǣ");
-                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n " + oldMessage[0] + " \n```\nНовое сообщение: \n```\n " + newMessage + " \n```\nПрикрепленные файлы:";
+                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n" + oldMessage[0] + " \n```\nНовое сообщение: \n```\n " + newMessage + " \n```\nПрикрепленные файлы:";
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
@@ -945,7 +949,7 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateData mcd = mcb.build();
                             channel.sendMessage(mcd).queue();
                         } else {
-                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n " + oldMessage[0] + " \n```\nНовое сообщение: \n```\n"  + newMessage + " \n```";
+                            String message = "Участник <@" + oldMessage[1] + "> (" + event.getMember().getUser().getGlobalName() + ", " + event.getMember().getUser().getId() + ") изменил сообщение.\nСтарое сообщение: \n```\n" + oldMessage[0] + " \n```\nНовое сообщение: \n```\n"  + newMessage + " \n```";
                             channel.sendMessage(message).queue();
                         }
                     }
@@ -979,7 +983,7 @@ public class EventListener extends ListenerAdapter {
                         writer.write(deletedMessage);
                         writer.close();
                         FileUpload deletedMessageFile = FileUpload.fromData(file, "deletedMessage.txt");
-                        if (!oldMessage[2].isEmpty()){
+                        if (oldMessage.length == 3){
                             String[] attachments = oldMessage[2].split("Ǣ");
                             String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: `deletedMessage.txt`. Прикрепленные файлы: ";
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
@@ -1004,9 +1008,9 @@ public class EventListener extends ListenerAdapter {
                         }
                         file.delete();
                     } else {
-                        if (!oldMessage[2].isEmpty()){
+                        if (oldMessage.length == 3){
                             String[] attachments = oldMessage[2].split("Ǣ");
-                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n " + deletedMessage + " \n```\nПрикрепленные файлы: ";
+                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n" + deletedMessage + " \n```\nПрикрепленные файлы: ";
                             MessageCreateBuilder mcb = new MessageCreateBuilder();
                             mcb.setContent(message);
                             for (int i=0; i<attachments.length; i++){
@@ -1019,7 +1023,7 @@ public class EventListener extends ListenerAdapter {
                             MessageCreateData mcd = mcb.build();
                             channel.sendMessage(mcd).queue();
                         } else {
-                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n " + deletedMessage + " \n```";
+                            String message = "Участник <@" + oldMessage[1] + "> (" + oldMessage[1] + ") удалил сообщение. \nСтарое сообщение: \n```\n" + deletedMessage + " \n```";
                             channel.sendMessage(message).queue();
                         }
                     }
