@@ -34,7 +34,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.13")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("org.json:json:20250517")
-    implementation("dev.arbjerg:lavalink-client:3.2.0")
+    implementation("dev.arbjerg:lavalink-client:3.4.0")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     implementation("com.fasterxml.jackson.core:jackson-core:2.16.1")
     implementation("commons-io:commons-io:2.15.1")

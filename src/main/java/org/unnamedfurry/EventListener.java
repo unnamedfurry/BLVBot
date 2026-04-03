@@ -156,30 +156,6 @@ public class EventListener extends ListenerAdapter {
         }
         return false;
     }
-    /*LinkedHashMap<String, String> messageHistory = new LinkedHashMap<String, String>(1000, 0.5f, false){
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
-            return size() > 1000;
-        }
-    };
-    LinkedHashMap<String, String> voiceOwners = new LinkedHashMap<String, String>(1000, 0.5f, false){
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, String> eldest){
-            return size() > 100;
-        }
-    };
-    LinkedHashMap<String, Boolean> locked = new LinkedHashMap<String, Boolean>(1000, 0.5f, false){
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
-            return size() > 1000;
-        }
-    };
-    LinkedHashMap<String, Boolean> muted = new LinkedHashMap<String, Boolean>(1000, 0.5f, false){
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
-            return size() > 1000;
-        }
-    };*/
 
     @Override
     public void onReady(ReadyEvent event){
@@ -336,9 +312,9 @@ public class EventListener extends ListenerAdapter {
             guild.moveVoiceMember(event.getMember().getUser(), channel).queue();
             pullToDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId(), channel.getId());
         }
-        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(getFromDB(event.getGuild().getId(), "voiсeowners", event.getMember().getUser().getId()))){
+        if (event.getChannelLeft() != null && event.getChannelLeft().getId().equals(getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()))){
             Guild guild = event.getGuild();
-            Channel channel = guild.getChannelById(VoiceChannel.class, getFromDB(event.getGuild().getId(), "voiсeowners", event.getMember().getUser().getId()));
+            Channel channel = guild.getChannelById(VoiceChannel.class, getFromDB(event.getGuild().getId(), "voiceowners", event.getMember().getUser().getId()));
             channel.delete().queue();
             remFromDB(guild.getId(), "voiceowners", event.getMember().getUser().getId());
         }

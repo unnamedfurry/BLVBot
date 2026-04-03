@@ -108,8 +108,6 @@ public class MusicBot {
                 long guildID = message.getGuildIdLong();
                 Link link = BotLauncher.getOrCreateLink(guildID);
                 encodedTrack = encodedTrack.trim();
-                encodedTrack = encodedTrack.replaceAll("\\s", "");
-                encodedTrack = URLEncoder.encode(encodedTrack, StandardCharsets.UTF_8);
                 link.getNode().decodeTrack(encodedTrack)
                         .flatMap(track -> {
                             QueueManager qm = getQueueManager();

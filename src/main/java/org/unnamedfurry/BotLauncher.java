@@ -165,25 +165,31 @@ public class BotLauncher extends ListenerAdapter {
 
     public static void connect(Message message) {
         try {
-            VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(Objects.requireNonNull(message.getMember()).getVoiceState()).getChannel();
-            bot.getDirectAudioController().connect(Objects.requireNonNull(memberChannel));
+            VoiceChannel memberChannel = (VoiceChannel) Objects.requireNonNull(
+                    Objects.requireNonNull(message.getMember()).getVoiceState()
+            ).getChannel();
+            message.getGuild().getAudioManager().openAudioConnection(memberChannel);
+            logger.info("Connecting to voice channel: {}", memberChannel.getName());
             oldBitrate = memberChannel.getBitrate();
-            logger.info("Old channel's bitrate: {}", oldBitrate);
-            memberChannel.getManager().setBitrate(96000).queue();
         } catch (Exception e) {
-            logger.error("Caught an error while connecting to the channel!: {}", e.getMessage());
-            message.getChannel().sendMessage("Возникла непредвиденная ошибка во время подключения к войсу.").queue();
+            logger.error("Error while connecting to voice channel", e);
+            message.getChannel().sendMessage("Не удалось подключиться к голосовому каналу.").queue();
         }
     }
 
     public static void disconnect(Guild guild, Member member, MessageChannel channel) {
         try {
-            VoiceChannel memberChannel = (VoiceChannel) member.getVoiceState().getChannel();
-            Objects.requireNonNull(memberChannel).getManager().setBitrate(oldBitrate).queue();
-            bot.getDirectAudioController().disconnect(guild);
+            if (oldBitrate > 0) {
+                VoiceChannel vc = (VoiceChannel) guild.getSelfMember().getVoiceState().getChannel();
+                if (vc != null) {
+                    vc.getManager().setBitrate(oldBitrate).queue();
+                }
+            }
+            guild.getAudioManager().closeAudioConnection();
+            logger.info("Disconnected from voice in guild {}", guild.getId());
         } catch (Exception e) {
-            logger.error("Caught an error while leaving to the channel!: {}", e.getMessage());
-            channel.sendMessage("Возникла непредвиденная ошибка во время отключения от войса.").queue();
+            logger.error("Error while disconnecting from voice", e);
+            if (channel != null) channel.sendMessage("Ошибка при отключении от голосового канала.").queue();
         }
     }
 
@@ -227,7 +233,7 @@ public class BotLauncher extends ListenerAdapter {
         });
 
         client.on(StatsEvent.class).subscribe((event) -> {
-            /*final LavalinkNode node = event.getNode();
+            final LavalinkNode node = event.getNode();
 
             logger.info(
                     "Node '{}' has stats, current players: {}/{} (link count {})",
@@ -235,8 +241,7 @@ public class BotLauncher extends ListenerAdapter {
                     event.getPlayingPlayers(),
                     event.getPlayers(),
                     client.getLinks().size()
-            );*/
-            return;
+            );
         });
 
         client.on(EmittedEvent.class).subscribe((event) -> {
